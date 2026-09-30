@@ -29,8 +29,8 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
-  # Релизные сборки идут только по тегу vX.Y.Z или при ручном запуске:
-  # минуты macOS в приватном репозитории расходуются в 10 раз быстрее.
+  # Релизные сборки идут только по тегу vX.Y.Z или при ручном запуске,
+  # чтобы не собирать пять платформ на каждый пуш.
   build:
     name: Сборка ${{ matrix.name }}
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
