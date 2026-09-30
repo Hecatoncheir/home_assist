@@ -126,7 +126,13 @@ class _DevicesPageState extends State<DevicesPage> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1120),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 40),
+            // Снизу — место под стеклянную нижнюю панель на телефоне.
+            padding: EdgeInsets.fromLTRB(
+              20,
+              28,
+              20,
+              40 + MediaQuery.paddingOf(context).bottom,
+            ),
             children: [
               _Header(devices: _devices, loading: _loading, onRefresh: _reload),
               for (final result in _failed)

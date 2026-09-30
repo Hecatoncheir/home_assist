@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/devices/device_controller.dart';
 import '../../core/spec/miot_spec.dart';
 import '../theme.dart';
+import 'home_switch.dart';
+import 'speed_dial.dart';
 
 const _units = {
   'percentage': ' %',
@@ -41,9 +43,13 @@ class ServiceSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final power = controller.spec?.power;
+    final speed = _speedProperty();
     final controls = [
       for (final property in service.properties)
-        if (property.readable && property != power) _control(property),
+        if (property == speed)
+          SpeedDial(property: property, controller: controller)
+        else if (property.readable && property != power)
+          _control(property),
       for (final action in service.actions)
         if (!action.hasInputs) _actionButton(action),
     ];
@@ -52,16 +58,38 @@ class ServiceSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Divider(color: context.colors.line, height: 32),
-        Text(
-          service.description.toUpperCase(),
-          style: context
-              .display(11, weight: FontWeight.w700)
-              .copyWith(color: context.colors.muted, letterSpacing: 1),
+        Padding(
+          padding: _inset,
+          child: Text(
+            service.description.toUpperCase(),
+            style: context
+                .display(11, weight: FontWeight.w700)
+                .copyWith(color: context.colors.muted, letterSpacing: 1),
+          ),
         ),
         const SizedBox(height: 8),
-        ...controls,
+        // Строки-переключатели подсвечиваются при наведении на всю ширину
+        // со скруглением, остальное сдвинуто на столько же, чтобы текст
+        // стоял ровно.
+        for (final control in controls)
+          control is HomeSwitchTile
+              ? control
+              : Padding(padding: _inset, child: control),
       ],
     );
+  }
+
+  static const _inset = EdgeInsets.symmetric(horizontal: 12);
+
+  /// Скорость вентилятора получает круглый регулятор — первая `fan-level`.
+  MiotProperty? _speedProperty() {
+    for (final property in service.properties) {
+      final adjustable = property.values.isNotEmpty || property.range != null;
+      if (property.name == 'fan-level' && property.writable && adjustable) {
+        return property;
+      }
+    }
+    return null;
   }
 
   Widget _control(MiotProperty property) {
@@ -75,9 +103,9 @@ class ServiceSection extends StatelessWidget {
     return _ValueRow(property, value);
   }
 
-  Widget _switch(MiotProperty property, Object? value) => SwitchListTile(
-    contentPadding: EdgeInsets.zero,
-    title: Text(property.description),
+  Widget _switch(MiotProperty property, Object? value) => HomeSwitchTile(
+    contentPadding: _inset,
+    title: Text(property.label),
     value: value == true,
     onChanged: (on) => controller.setValue(property, on),
   );
@@ -87,7 +115,7 @@ class ServiceSection extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(property.description),
+        Text(property.label),
         const SizedBox(height: 8),
         Wrap(
           spacing: 6,
@@ -109,7 +137,7 @@ class ServiceSection extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: OutlinedButton(
       onPressed: () => controller.run(action),
-      child: Text(action.description),
+      child: Text(action.label),
     ),
   );
 }
@@ -120,16 +148,35 @@ class _ValueRow extends StatelessWidget {
   final MiotProperty property;
   final Object? value;
 
+  /// Длиннее этого значение уходит на отдельную строку под подписью.
+  static const _inlineLimit = 24;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Row(
-      children: [
-        Expanded(child: Text(property.description)),
-        Text(formatValue(property, value), style: context.mono(size: 13)),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final text = formatValue(property, value);
+    final style = context.mono(size: 13);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: text.length > _inlineLimit
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(property.label),
+                const SizedBox(height: 4),
+                SelectableText(text, style: style),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: Text(property.label)),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(text, textAlign: TextAlign.end, style: style),
+                ),
+              ],
+            ),
+    );
+  }
 }
 
 /// Ползунок: команда уходит, когда пользователь отпускает палец.

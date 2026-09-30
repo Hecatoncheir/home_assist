@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/devices/device.dart';
 import '../../core/devices/device_controller.dart';
 import '../theme.dart';
+import 'home_switch.dart';
 
 const _iconsByKeyword = [
   ('light', Icons.lightbulb_outline),
@@ -135,8 +136,9 @@ class DeviceTile extends StatelessWidget {
                     children: [
                       _IconBox(device, lit: lit),
                       if (on != null)
-                        Switch(
+                        HomeSwitch(
                           value: on,
+                          onGlow: lit,
                           onChanged: (_) => controller.toggle(),
                         ),
                     ],

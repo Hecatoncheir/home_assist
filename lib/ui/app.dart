@@ -8,6 +8,7 @@ import '../demo/demo.dart';
 import 'home_shell.dart';
 import 'login_page.dart';
 import 'theme.dart';
+import 'widgets/ui_scale.dart';
 
 class HomeAssistApp extends StatefulWidget {
   const HomeAssistApp({
@@ -71,6 +72,8 @@ class _HomeAssistAppState extends State<HomeAssistApp> {
         theme: buildTheme(HomeColors.light, Brightness.light),
         darkTheme: buildTheme(HomeColors.dark, Brightness.dark),
         themeMode: widget.prefs.themeMode,
+        builder: (context, child) =>
+            UiScale(prefs: widget.prefs, child: child!),
         home: AnimatedSwitcher(
           duration: const Duration(milliseconds: 350),
           child: _home(),

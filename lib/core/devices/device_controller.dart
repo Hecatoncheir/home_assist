@@ -6,16 +6,28 @@ import '../spec/miot_spec.dart';
 import '../spec/spec_repository.dart';
 import 'device.dart';
 import 'device_transport.dart';
+import 'swing_controller.dart';
 
 /// Состояние одного устройства: спецификация, значения свойств и команды.
 class DeviceController extends ChangeNotifier {
-  DeviceController(this.device, this._specs, this._transport);
+  DeviceController(
+    this.device,
+    this._specs,
+    this._transport, {
+    this.calibrations,
+  });
 
   static const _pollInterval = Duration(seconds: 8);
 
   final Device device;
   final SpecRepository _specs;
   final DeviceTransport _transport;
+  final SwingCalibrations? calibrations;
+
+  /// Поворот в нужную сторону для вентиляторов, которые умеют только качаться.
+  late final swing = SwingController(this, calibrations: calibrations);
+
+  DeviceTransport get transport => _transport;
 
   MiotSpec? spec;
 
@@ -79,6 +91,7 @@ class DeviceController extends ChangeNotifier {
   @override
   void dispose() {
     stopPolling();
+    swing.dispose();
     _disposed = true;
     super.dispose();
   }

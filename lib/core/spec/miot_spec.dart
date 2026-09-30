@@ -30,6 +30,14 @@ class MiotSpec {
       if (property.readable) property.id,
   ];
 
+  /// Первое свойство с именем [name], например `horizontal-swing`.
+  MiotProperty? property(String name) {
+    for (final property in _properties) {
+      if (property.name == name) return property;
+    }
+    return null;
+  }
+
   /// Главный выключатель: первое свойство `on`, которое можно менять.
   MiotProperty? get power {
     for (final property in _properties) {
@@ -113,6 +121,9 @@ class MiotProperty {
   final MiotRange? range;
   final List<({int value, String label})> values;
 
+  /// Подпись для интерфейса: у части свойств описание в спецификации пустое.
+  String get label => description.isNotEmpty ? description : name;
+
   bool get isSwitch => format == 'bool' && readable && writable;
   bool get isFloat => format == 'float';
 }
@@ -132,6 +143,7 @@ class MiotAction {
   const MiotAction({
     required this.siid,
     required this.aiid,
+    required this.name,
     required this.description,
     required this.hasInputs,
   });
@@ -140,16 +152,20 @@ class MiotAction {
       MiotAction(
         siid: siid,
         aiid: json['iid'] as int,
+        name: _urnName(json['type']),
         description: json['description'] as String? ?? '',
         hasInputs: (json['in'] as List? ?? const []).isNotEmpty,
       );
 
   final int siid;
   final int aiid;
+  final String name;
   final String description;
 
   /// Действия с параметрами приложение пока не вызывает.
   final bool hasInputs;
+
+  String get label => description.isNotEmpty ? description : name;
 }
 
 /// `urn:miot-spec-v2:property:fan-level:00000016:dmaker-p5:1` → `fan-level`.

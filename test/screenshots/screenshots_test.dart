@@ -122,6 +122,16 @@ void main() {
       await shoot(tester, 'phone-settings');
     });
 
+    testWidgets('настройки на широком экране', (tester) async {
+      await render(
+        tester,
+        _desktop,
+        _settingsWithTwoAccounts(prefs),
+        dark: true,
+      );
+      await shoot(tester, 'settings');
+    });
+
     testWidgets('телефон: вход', (tester) async {
       await render(tester, _phone, LoginPage(onLoggedIn: (_) async {}));
       await shoot(tester, 'phone-login');

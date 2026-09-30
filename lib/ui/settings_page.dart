@@ -5,6 +5,7 @@ import '../core/cloud/regions.dart';
 import '../core/preferences.dart';
 import 'theme.dart';
 import 'widgets/device_tile.dart';
+import 'widgets/ui_scale.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
@@ -31,88 +32,132 @@ class SettingsPage extends StatelessWidget {
         : 'Выйти из аккаунта';
   }
 
+  /// С этой ширины настройки раскладываются в две колонки.
+  static const _twoColumns = 860.0;
+
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     return ListenableBuilder(
       listenable: prefs,
-      builder: (context, _) => Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 40),
-            children: [
-              Text('Настройки', style: context.display(28)),
-              const _SectionTitle('Аккаунты Xiaomi'),
-              _Card(
-                children: [
-                  for (final session in sessions)
-                    _AccountRow(
-                      session,
-                      onRemove: _demo
-                          ? null
-                          : () => _confirmRemove(context, session),
-                    ),
-                  if (!_demo)
-                    ListTile(
-                      leading: Icon(Icons.add, color: c.accent),
-                      title: Text(
-                        'Добавить аккаунт',
-                        style: TextStyle(
-                          color: c.accent,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      onTap: onAddAccount,
-                    ),
-                ],
-              ),
-              const _SectionTitle('Какие регионы опрашивать'),
-              _Card(
-                children: [for (final region in allRegions) _regionRow(region)],
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Изменение применится при следующем обновлении списка.',
-                  style: TextStyle(color: c.muted, fontSize: 13),
+      builder: (context, _) => LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= _twoColumns;
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: wide ? 1080 : 640),
+              child: ListView(
+                // Снизу — место под стеклянную нижнюю панель на телефоне.
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  28,
+                  20,
+                  40 + MediaQuery.paddingOf(context).bottom,
                 ),
-              ),
-              const _SectionTitle('Оформление'),
-              SegmentedButton<ThemeMode>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(
-                    value: ThemeMode.system,
-                    label: Text('Как в системе'),
-                  ),
-                  ButtonSegment(value: ThemeMode.light, label: Text('Светлая')),
-                  ButtonSegment(value: ThemeMode.dark, label: Text('Тёмная')),
-                ],
-                selected: {prefs.themeMode},
-                onSelectionChanged: (modes) => prefs.themeMode = modes.first,
-              ),
-              const SizedBox(height: 28),
-              _Card(
                 children: [
-                  ListTile(
-                    leading: Icon(Icons.logout, color: c.bad),
-                    title: Text(
-                      _logoutLabel,
-                      style: TextStyle(
-                        color: c.bad,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    onTap: onLogout,
-                  ),
+                  Text('Настройки', style: context.display(28)),
+                  if (wide)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _column(_left(context))),
+                        const SizedBox(width: 24),
+                        Expanded(child: _column(_right(context))),
+                      ],
+                    )
+                  else
+                    _column([..._left(context), ..._right(context)]),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
+    );
+  }
+
+  Widget _column(List<Widget> children) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: children,
+  );
+
+  List<Widget> _left(BuildContext context) => [
+    const _SectionTitle('Аккаунты Xiaomi'),
+    _accounts(context),
+    const _SectionTitle('Оформление'),
+    _Card(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      children: [
+        SegmentedButton<ThemeMode>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: ThemeMode.system, label: Text('Авто')),
+            ButtonSegment(value: ThemeMode.light, label: Text('Светлая')),
+            ButtonSegment(value: ThemeMode.dark, label: Text('Тёмная')),
+          ],
+          selected: {prefs.themeMode},
+          onSelectionChanged: (modes) => prefs.themeMode = modes.first,
+        ),
+        const SizedBox(height: 12),
+        UiScaleControl(prefs: prefs),
+      ],
+    ),
+  ];
+
+  List<Widget> _right(BuildContext context) {
+    final c = context.colors;
+    return [
+      const _SectionTitle('Какие регионы опрашивать'),
+      _Card(
+        padding: const EdgeInsets.all(14),
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [for (final region in allRegions) _regionChip(region)],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Изменение применится при следующем обновлении списка.',
+            style: TextStyle(color: c.muted, fontSize: 13),
+          ),
+        ],
+      ),
+      const SizedBox(height: 20),
+      _Card(
+        children: [
+          ListTile(
+            leading: Icon(Icons.logout, color: c.bad),
+            title: Text(
+              _logoutLabel,
+              style: TextStyle(color: c.bad, fontWeight: FontWeight.w600),
+            ),
+            onTap: onLogout,
+          ),
+        ],
+      ),
+    ];
+  }
+
+  Widget _accounts(BuildContext context) {
+    final c = context.colors;
+    return _Card(
+      children: [
+        for (final session in sessions)
+          _AccountRow(
+            session,
+            onRemove: _demo ? null : () => _confirmRemove(context, session),
+          ),
+        if (!_demo)
+          ListTile(
+            leading: Icon(Icons.add, color: c.accent),
+            title: Text(
+              'Добавить аккаунт',
+              style: TextStyle(color: c.accent, fontWeight: FontWeight.w600),
+            ),
+            onTap: onAddAccount,
+          ),
+      ],
     );
   }
 
@@ -140,11 +185,10 @@ class SettingsPage extends StatelessWidget {
     if (confirmed == true) onRemoveAccount(session);
   }
 
-  Widget _regionRow(String region) => SwitchListTile(
-    secondary: RegionBadge(region),
-    title: Text(regionNames[region]!),
-    value: prefs.regions.contains(region),
-    onChanged: (polled) => prefs.setRegionPolled(region, polled),
+  Widget _regionChip(String region) => _RegionChip(
+    region: region,
+    selected: prefs.regions.contains(region),
+    onTap: () => prefs.setRegionPolled(region, !prefs.regions.contains(region)),
   );
 }
 
@@ -178,7 +222,7 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 28, bottom: 12),
+    padding: const EdgeInsets.only(top: 24, bottom: 10),
     child: Text(
       text.toUpperCase(),
       style: context
@@ -189,17 +233,72 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _Card extends StatelessWidget {
-  const _Card({required this.children});
+  const _Card({required this.children, this.padding = EdgeInsets.zero});
 
   final List<Widget> children;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) => Material(
     color: context.colors.tile,
     borderRadius: tileRadius,
     clipBehavior: Clip.antiAlias,
-    child: Column(children: children),
+    child: Padding(
+      padding: padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
+    ),
   );
+}
+
+/// Регион-переключатель в виде «пилюли»: код и название.
+class _RegionChip extends StatelessWidget {
+  const _RegionChip({
+    required this.region,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String region;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final foreground = selected ? c.onAccent : c.ink;
+    return Semantics(
+      toggled: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(99),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? c.accent : c.bg,
+            borderRadius: BorderRadius.circular(99),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RegionBadge(region, color: foreground),
+              const SizedBox(width: 8),
+              Text(
+                regionNames[region]!,
+                style: TextStyle(
+                  color: foreground,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _Avatar extends StatelessWidget {

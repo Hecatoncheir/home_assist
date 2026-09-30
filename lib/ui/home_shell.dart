@@ -11,6 +11,7 @@ import '../demo/demo.dart';
 import 'devices_page.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
+import 'widgets/glass.dart';
 import 'widgets/logo.dart';
 
 const _sections = [
@@ -97,6 +98,7 @@ class _HomeShellState extends State<HomeShell> {
             device,
             widget.specs,
             _links[device.accountId]!.transport,
+            calibrations: widget.prefs,
           ),
         ),
         SettingsPage(
@@ -108,22 +110,29 @@ class _HomeShellState extends State<HomeShell> {
         ),
       ],
     );
-    return Scaffold(
-      body: SafeArea(
-        child: wide
-            ? Row(
-                children: [
-                  _rail(),
-                  Expanded(child: pages),
-                ],
-              )
-            : pages,
+    return AmbientBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        // Список уходит под нижнюю панель и просвечивает сквозь стекло.
+        extendBody: true,
+        body: SafeArea(
+          bottom: wide,
+          child: wide
+              ? Row(
+                  children: [
+                    _rail(),
+                    Expanded(child: pages),
+                  ],
+                )
+              : pages,
+        ),
+        bottomNavigationBar: wide ? null : _bottomBar(),
       ),
-      bottomNavigationBar: wide ? null : _bottomBar(),
     );
   }
 
   Widget _rail() => NavigationRail(
+    backgroundColor: Colors.transparent,
     selectedIndex: _index,
     onDestinationSelected: _select,
     labelType: NavigationRailLabelType.all,
@@ -140,12 +149,16 @@ class _HomeShellState extends State<HomeShell> {
     ],
   );
 
-  Widget _bottomBar() => NavigationBar(
-    selectedIndex: _index,
-    onDestinationSelected: _select,
-    destinations: [
-      for (final section in _sections)
-        NavigationDestination(icon: Icon(section.icon), label: section.label),
-    ],
+  Widget _bottomBar() => Glass(
+    child: NavigationBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      selectedIndex: _index,
+      onDestinationSelected: _select,
+      destinations: [
+        for (final section in _sections)
+          NavigationDestination(icon: Icon(section.icon), label: section.label),
+      ],
+    ),
   );
 }

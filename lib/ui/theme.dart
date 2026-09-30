@@ -18,6 +18,7 @@ class HomeColors extends ThemeExtension<HomeColors> {
     required this.ok,
     required this.bad,
     required this.badSoft,
+    required this.needle,
   });
 
   static const light = HomeColors(
@@ -35,6 +36,7 @@ class HomeColors extends ThemeExtension<HomeColors> {
     ok: Color(0xFF24925F),
     bad: Color(0xFFC2412C),
     badSoft: Color(0xFFFBE6E1),
+    needle: Color(0xFFC8174F),
   );
 
   static const dark = HomeColors(
@@ -52,11 +54,15 @@ class HomeColors extends ThemeExtension<HomeColors> {
     ok: Color(0xFF4CC38A),
     bad: Color(0xFFFF8A73),
     badSoft: Color(0xFF3A1F1B),
+    needle: Color(0xFFFF5C8A),
   );
 
   final Color bg, surface, tile, ink, muted, line;
   final Color glowA, glowB, glowInk;
   final Color accent, onAccent, ok, bad, badSoft;
+
+  /// Стрелка направления вентилятора.
+  final Color needle;
 
   LinearGradient get glow => LinearGradient(
     begin: Alignment.topLeft,
@@ -117,6 +123,10 @@ ThemeData buildTheme(HomeColors c, Brightness brightness) {
     scaffoldBackgroundColor: c.bg,
     extensions: [c],
     fontFamily: 'NunitoSans',
+    // Подсветка строк при наведении и нажатии — со скруглёнными краями.
+    listTileTheme: ListTileThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: c.tile,

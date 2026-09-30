@@ -73,7 +73,13 @@ class DemoTransport implements DeviceTransport {
   Future<Map<PropertyId, Object?>> getProperties(
     Device device,
     List<PropertyId> ids,
-  ) async => {...await _stateOf(device)};
+  ) async {
+    final state = await _stateOf(device);
+    return {
+      for (final id in ids)
+        if (state.containsKey(id)) id: state[id],
+    };
+  }
 
   @override
   Future<void> setProperty(Device device, PropertyId id, Object value) async {

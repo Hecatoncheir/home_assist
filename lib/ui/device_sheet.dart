@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../core/cloud/regions.dart';
 import '../core/devices/device_controller.dart';
+import '../core/devices/device_probe.dart';
+import 'device_probe_page.dart';
 import 'theme.dart';
 import 'widgets/device_tile.dart';
+import 'widgets/glass.dart';
 import 'widgets/spec_controls.dart';
+import 'widgets/swing_dial.dart';
 
 /// Панель устройства: снизу на узком экране, справа на широком.
 Future<void> showDeviceSheet(
@@ -16,17 +20,22 @@ Future<void> showDeviceSheet(
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: context.colors.surface,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black26,
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * .9,
       ),
-      builder: (_) => SafeArea(child: _DeviceDetails(controller)),
+      builder: (_) => Glass(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: SafeArea(child: _DeviceDetails(controller)),
+      ),
     );
   }
   return showGeneralDialog(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Закрыть',
+    barrierColor: Colors.black26,
     transitionDuration: const Duration(milliseconds: 320),
     pageBuilder: (_, _, _) => _SidePanel(child: _DeviceDetails(controller)),
     transitionBuilder: (_, animation, _, child) => SlideTransition(
@@ -47,9 +56,11 @@ class _SidePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Align(
     alignment: Alignment.centerRight,
-    child: Material(
-      color: context.colors.surface,
-      child: SizedBox(width: 420, height: double.infinity, child: child),
+    child: Glass(
+      child: Material(
+        type: MaterialType.transparency,
+        child: SizedBox(width: 420, height: double.infinity, child: child),
+      ),
     ),
   );
 }
@@ -132,8 +143,25 @@ class _DeviceDetailsState extends State<_DeviceDetails> {
           ),
           _InfoRow('Аккаунт', device.accountId),
           _InfoRow('IP', device.localIp.isEmpty ? '—' : device.localIp),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: device.isOnline ? () => _openProbe(context) : null,
+            icon: const Icon(Icons.science_outlined),
+            label: const Text('Исследовать устройство'),
+          ),
         ],
       ),
+    );
+  }
+
+  void _openProbe(BuildContext context) {
+    final probe = DeviceProbe(
+      device: _controller.device,
+      spec: _controller.spec,
+      transport: _controller.transport,
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => DeviceProbePage(probe: probe)),
     );
   }
 
@@ -148,6 +176,7 @@ class _DeviceDetailsState extends State<_DeviceDetails> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (_controller.swing.supported) _direction(context),
             for (final service in spec.controls)
               ServiceSection(service: service, controller: _controller),
           ],
@@ -155,6 +184,25 @@ class _DeviceDetailsState extends State<_DeviceDetails> {
       ),
     );
   }
+
+  /// Направление: только у вентиляторов, которые умеют лишь качаться.
+  Widget _direction(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Divider(color: context.colors.line, height: 32),
+      Text(
+        'НАПРАВЛЕНИЕ',
+        style: context
+            .display(11, weight: FontWeight.w700)
+            .copyWith(color: context.colors.muted, letterSpacing: 1),
+      ),
+      const SizedBox(height: 12),
+      if (_controller.isOn == false)
+        const _Note('Включите вентилятор, чтобы повернуть его.')
+      else
+        SwingDial(swing: _controller.swing),
+    ],
+  );
 
   String get _missingSpecText => _controller.loaded
       ? 'Для этой модели нет опубликованной спецификации, '
