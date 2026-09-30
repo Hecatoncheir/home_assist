@@ -112,7 +112,7 @@ class _SwingDialState extends State<SwingDial>
 
   Widget _edgeButton(int edge, IconData icon) => GaugeButton(
     icon: icon,
-    tooltip: 'Держите, пока вентилятор идёт к этому краю',
+    tooltip: 'Держите, пока вентилятор стоит у этого края',
     state: _buttonState(edge),
     onHoldStart: () => _swing.holdStart(edge),
     onHoldEnd: _swing.holdEnd,
@@ -131,30 +131,32 @@ class _SwingDialState extends State<SwingDial>
     final result = _swing.holdResult;
     if (_swing.holding) {
       final seconds = _swing.holdElapsed!.inMilliseconds / 1000;
-      return 'Отпустите, когда вентилятор развернётся у края… '
+      return 'Отпустите, как только вентилятор тронется от края… '
           '${seconds.toStringAsFixed(1)} с';
     }
-    if (_swing.calibrating) {
-      return 'Вентилятор качается. Когда он развернётся у края, зажмите '
-          'кнопку того края, к которому он пошёл, и отпустите, когда он '
-          'развернётся у него.';
-    }
     if (result != null && !result.accepted) {
-      return 'Слишком короткое нажатие: держите кнопку весь проход '
-          'от края до края.';
+      return 'Не засчитано: кнопку другого края нужно зажать, как только '
+          'вентилятор замрёт у него, а держать — пока стоит.';
     }
-    if (!_swing.calibrated) {
-      return 'Нажмите «Калибровка»: вентилятор начнёт качаться, и вы '
-          'засечёте один проход от края до края кнопками по бокам.';
+    if (_swing.awaitingOtherEdge) {
+      return 'Теперь зажмите кнопку другого края, как только вентилятор '
+          'замрёт у него, и отпустите, когда тронется.';
+    }
+    if (_swing.calibrating || !_swing.calibrated) {
+      return 'Калибровка. Когда вентилятор замрёт у края, зажмите кнопку '
+          'этого края и отпустите, как только он тронется. Затем то же '
+          'у другого края.';
     }
     if (_swing.position == null) {
       return 'Положение сбилось: качание включали не из приложения. '
-          'Нажмите «Калибровка» — достаточно одного прохода.';
+          'Нажмите «Калибровка» и отметьте один край.';
     }
     if (_swing.target != null) return 'Поворачиваю…';
-    final seconds = _swing.sweep.inMilliseconds / 1000;
+    final sweep = _swing.sweep.inMilliseconds / 1000;
+    final dwell = _swing.dwell.inMilliseconds / 1000;
     return 'Нажмите на дугу, чтобы повернуть вентилятор. '
-        'Проход от края до края — ${seconds.toStringAsFixed(1)} с.';
+        'Проход — ${sweep.toStringAsFixed(1)} с, '
+        'пауза у края — ${dwell.toStringAsFixed(1)} с.';
   }
 }
 
@@ -165,7 +167,7 @@ class _KnobFace extends StatelessWidget {
   final SwingController swing;
 
   String get _status {
-    if (swing.holding) return 'засекаю проход';
+    if (swing.holding) return 'стоит у края';
     if (swing.calibrating) return 'ждём края';
     if (swing.position == null) return 'нет данных';
     if (swing.target != null) return 'поворот';

@@ -11,6 +11,7 @@ import '../core/preferences.dart';
 import 'device_sheet.dart';
 import 'theme.dart';
 import 'widgets/device_tile.dart';
+import 'widgets/reveal.dart';
 
 const _allFilter = 'all';
 
@@ -333,10 +334,13 @@ class _FilterChips extends StatelessWidget {
     );
   }
 
-  Widget _chip(String value, String label, int count) => _FilterChip(
-    label: '$label  $count',
-    selected: selected == value,
-    onTap: () => onSelected(value),
+  Widget _chip(String value, String label, int count) => RevealBorder(
+    borderRadius: BorderRadius.circular(99),
+    child: _FilterChip(
+      label: '$label  $count',
+      selected: selected == value,
+      onTap: () => onSelected(value),
+    ),
   );
 }
 

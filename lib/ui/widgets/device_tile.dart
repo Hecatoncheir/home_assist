@@ -1,11 +1,14 @@
 import 'dart:math';
 
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../core/devices/device.dart';
 import '../../core/devices/device_controller.dart';
 import '../theme.dart';
 import 'home_switch.dart';
+import 'reveal.dart';
 
 const _iconsByKeyword = [
   ('light', Icons.lightbulb_outline),
@@ -101,54 +104,72 @@ class DeviceTile extends StatelessWidget {
     final lit = on == true;
     final ink = lit ? c.glowInk : c.ink;
     final shadow = lit ? c.glowB.withValues(alpha: .35) : Colors.black12;
-    return Opacity(
-      opacity: device.isOnline ? 1 : .62,
+    return RevealBorder(
+      borderRadius: tileRadius,
+      // Свечение включённой плитки — снаружи стекла, чтобы его не обрезать.
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 350),
-        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: c.tile,
-          gradient: lit ? c.glow : null,
           borderRadius: tileRadius,
           boxShadow: [
-            BoxShadow(
-              color: shadow,
-              blurRadius: lit ? 26 : 8,
-              offset: const Offset(0, 4),
-            ),
+            if (lit)
+              BoxShadow(
+                color: shadow,
+                blurRadius: 26,
+                offset: const Offset(0, 4),
+              ),
           ],
         ),
-        child: Material(
-          type: MaterialType.transparency,
-          // Шрифт темы, а не шрифт Material по умолчанию.
-          textStyle: Theme.of(context).textTheme.bodyMedium
-              ?.copyWith(color: ink),
-          child: InkWell(
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _IconBox(device, lit: lit),
-                      if (on != null)
-                        HomeSwitch(
-                          value: on,
-                          onGlow: lit,
-                          onChanged: (_) => controller.toggle(),
-                        ),
-                    ],
+        child: ClipRRect(
+          borderRadius: tileRadius,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 350),
+              decoration: BoxDecoration(
+                // Полупрозрачный цвет вместе с градиентом приглушил бы градиент.
+                color: lit ? null : c.tile.withValues(alpha: .58),
+                gradient: lit ? c.glow : null,
+              ),
+              // Недоступное устройство тускнеет содержимым, а не целиком:
+              // полупрозрачность поверх размытия отключила бы стекло.
+              child: Opacity(
+                opacity: device.isOnline ? 1 : .5,
+                child: Material(
+                  type: MaterialType.transparency,
+                  // Шрифт темы, а не шрифт Material по умолчанию.
+                  textStyle: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: ink),
+                  child: InkWell(
+                    onTap: onTap,
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _IconBox(device, lit: lit),
+                              if (on != null)
+                                HomeSwitch(
+                                  value: on,
+                                  onGlow: lit,
+                                  onChanged: (_) => controller.toggle(),
+                                ),
+                            ],
+                          ),
+                          _Caption(
+                            device: device,
+                            status: deviceStatus(controller),
+                            muted: lit ? ink.withValues(alpha: .75) : c.muted,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  _Caption(
-                    device: device,
-                    status: deviceStatus(controller),
-                    muted: lit ? ink.withValues(alpha: .75) : c.muted,
-                  ),
-                ],
+                ),
               ),
             ),
           ),

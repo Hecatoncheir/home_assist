@@ -69,6 +69,16 @@ class Preferences extends ChangeNotifier implements SwingCalibrations {
       _prefs.setInt('swing.$did', sweep.inMilliseconds);
 
   @override
+  Duration? swingDwell(String did) {
+    final ms = _prefs.getInt('swingDwell.$did');
+    return ms == null ? null : Duration(milliseconds: ms);
+  }
+
+  @override
+  void saveSwingDwell(String did, Duration dwell) =>
+      _prefs.setInt('swingDwell.$did', dwell.inMilliseconds);
+
+  @override
   SwingSnapshot? swingState(String did) {
     final raw = _prefs.getString('swingState.$did');
     if (raw == null) return null;

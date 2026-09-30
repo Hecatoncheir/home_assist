@@ -52,6 +52,13 @@ class _Memory implements SwingCalibrations {
   void saveSwingSweep(String did, Duration sweep) => saved[did] = sweep;
 
   final states = <String, SwingSnapshot?>{};
+  final dwells = <String, Duration>{};
+
+  @override
+  Duration? swingDwell(String did) => dwells[did];
+
+  @override
+  void saveSwingDwell(String did, Duration dwell) => dwells[did] = dwell;
 
   @override
   SwingSnapshot? swingState(String did) => states[did];
@@ -83,6 +90,25 @@ void main() {
     return (device: device, swing: swing, transport: transport);
   }
 
+  /// Калибровка по схеме «кнопка = вентилятор стоит у этого края»:
+  /// отметили край [from], вентилятор за [sweep] дошёл до другого края,
+  /// постоял там [dwell] и тронулся обратно — к [from].
+  void markPass(
+    FakeAsync async,
+    SwingController swing, {
+    required int from,
+    required Duration sweep,
+    Duration dwell = Duration.zero,
+  }) {
+    swing.holdStart(from);
+    async.elapse(dwell);
+    swing.holdEnd();
+    async.elapse(sweep);
+    swing.holdStart(1 - from);
+    async.elapse(dwell);
+    swing.holdEnd();
+  }
+
   test('калибровка, поворот к цели и остановка качания', () {
     fakeAsync((async) {
       final memory = _Memory();
@@ -91,11 +117,8 @@ void main() {
       expect(swing.supported, isTrue);
       expect(swing.position, isNull);
 
-      // Кнопку верхнего края держат 8 секунд: проход длится 8 с,
-      // вентилятор сейчас у верхнего края и идёт вниз.
-      swing.holdStart(1);
-      async.elapse(const Duration(seconds: 8));
-      swing.holdEnd();
+      // От нижнего края до верхнего 8 с; сейчас тронулся от верхнего вниз.
+      markPass(async, swing, from: 0, sweep: const Duration(seconds: 8));
 
       expect(swing.sweep, const Duration(seconds: 8));
       expect(memory.saved['1'], const Duration(seconds: 8));
@@ -114,11 +137,10 @@ void main() {
     });
   });
 
-  /// Калибровка от нижнего края: проход 10 с, затем остановка около 0.2.
+  /// Проход 10 с, вентилятор тронулся от нижнего края вверх,
+  /// затем остановка около 0.2.
   void calibrateAndStopAt02(FakeAsync async, SwingController swing) {
-    swing.holdStart(0);
-    async.elapse(const Duration(seconds: 10));
-    swing.holdEnd();
+    markPass(async, swing, from: 1, sweep: const Duration(seconds: 10));
     swing.moveTo(.2);
     async.elapse(const Duration(seconds: 3));
     expect(swing.moving, isFalse);
@@ -198,13 +220,39 @@ void main() {
     });
   });
 
+  test('пауза у края: замер второй кнопкой и учёт в расчёте', () {
+    fakeAsync((async) {
+      final memory = _Memory();
+      final (:device, :swing, :transport) = setUp(async, memory: memory);
+
+      // Проход 1.5 с без пауз, у краёв стоит по 0.5 с.
+      markPass(
+        async,
+        swing,
+        from: 0,
+        sweep: const Duration(milliseconds: 1500),
+        dwell: const Duration(milliseconds: 500),
+      );
+
+      expect(swing.sweep, const Duration(milliseconds: 1500));
+      expect(swing.dwell, const Duration(milliseconds: 500));
+      expect(memory.dwells['1'], const Duration(milliseconds: 500));
+      expect(swing.position, closeTo(1, 1e-9));
+
+      async.elapse(const Duration(milliseconds: 750));
+      expect(swing.position, closeTo(.5, 1e-9));
+
+      // Дошёл до 0 и полсекунды стоит на месте.
+      async.elapse(const Duration(milliseconds: 1050));
+      expect(swing.position, closeTo(0, 1e-9));
+    });
+  });
+
   test('после перезапуска помнит калибровку и положение', () {
     fakeAsync((async) {
       final memory = _Memory();
       final first = setUp(async, memory: memory);
-      first.swing.holdStart(0);
-      async.elapse(const Duration(seconds: 10));
-      first.swing.holdEnd();
+      markPass(async, first.swing, from: 1, sweep: const Duration(seconds: 10));
       first.swing.moveTo(.6);
       async.elapse(const Duration(seconds: 8));
       expect(first.swing.moving, isFalse);
@@ -224,9 +272,7 @@ void main() {
     fakeAsync((async) {
       final memory = _Memory();
       final first = setUp(async, memory: memory);
-      first.swing.holdStart(0);
-      async.elapse(const Duration(seconds: 10));
-      first.swing.holdEnd();
+      markPass(async, first.swing, from: 1, sweep: const Duration(seconds: 10));
       first.device.dispose();
 
       async.elapse(const Duration(minutes: 5));
@@ -237,15 +283,14 @@ void main() {
     });
   });
 
-  test('слишком короткое нажатие не считается калибровкой', () {
+  test('слишком короткий проход не считается калибровкой', () {
     fakeAsync((async) {
       final (:device, :swing, :transport) = setUp(async);
 
-      swing.holdStart(0);
-      async.elapse(const Duration(milliseconds: 500));
-      swing.holdEnd();
+      markPass(async, swing, from: 0, sweep: const Duration(milliseconds: 300));
 
       expect(swing.calibrated, isFalse);
+      expect(swing.holdResult?.accepted, isFalse);
     });
   });
 }

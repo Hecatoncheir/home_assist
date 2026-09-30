@@ -1,31 +1,41 @@
 /// Положение качающегося вентилятора, вычисленное по времени.
 ///
-/// Положение — доля дуги качания: 0 — один край, 1 — другой. Считается,
-/// что вентилятор движется с постоянной скоростью, проходит дугу за [sweep]
-/// и у края сразу разворачивается.
+/// Положение — доля дуги качания: 0 — один край, 1 — другой. Вентилятор
+/// проходит дугу за [sweep] с постоянной скоростью, у каждого края замирает
+/// на [dwell] и идёт обратно. Полный цикл:
+/// вверх (sweep) → пауза у 1 (dwell) → вниз (sweep) → пауза у 0 (dwell).
 class SwingTracker {
-  SwingTracker(this.sweep);
+  SwingTracker(this.sweep, {this.dwell = Duration.zero});
 
   /// Время прохода от края до края.
   Duration sweep;
 
-  /// Фаза: 0…1 — путь к краю 1, 1…2 — обратно к краю 0.
-  double? _phase;
+  /// Сколько вентилятор стоит у края перед разворотом.
+  Duration dwell;
 
-  /// Когда вентилятор начал движение от фазы [_phase]; `null` — стоит.
+  /// Место в цикле, микросекунды от начала движения вверх от края 0.
+  double? _cycle;
+
+  /// Когда вентилятор начал движение от [_cycle]; `null` — стоит.
   DateTime? _since;
 
-  bool get known => _phase != null;
+  double get _sweep => sweep.inMicroseconds.toDouble();
+  double get _dwell => dwell.inMicroseconds.toDouble();
+  double get _period => 2 * (_sweep + _dwell);
+
+  bool get known => _cycle != null;
   bool get moving => known && _since != null;
 
-  /// Вентилятор дошёл до края [edge] (0 или 1) и развернулся.
-  void reachedEdge(int edge, DateTime at) {
-    _phase = edge == 1 ? 1 : 0;
-    _since = at;
-  }
+  /// Вентилятор дошёл до края [edge] (0 или 1) и замер перед разворотом.
+  void reachedEdge(int edge, DateTime at) =>
+      _set(edge == 1 ? _sweep : 2 * _sweep + _dwell, at);
+
+  /// Вентилятор тронулся от края [edge] в обратную сторону.
+  void leftEdge(int edge, DateTime at) =>
+      _set(edge == 1 ? _sweep + _dwell : 0, at);
 
   void stop(DateTime at) {
-    _phase = _phaseAt(at);
+    _cycle = _cycleAt(at);
     _since = null;
   }
 
@@ -37,60 +47,75 @@ class SwingTracker {
   /// Вентилятор идёт (или пойдёт после остановки) в обратную сторону —
   /// с того же места.
   void reverse(DateTime at) {
-    final phase = _phaseAt(at);
-    if (phase == null) return;
-    _phase = (2 - phase) % 2;
+    final cycle = _cycleAt(at);
+    if (cycle == null) return;
+    _cycle = _mirror(cycle);
     if (_since != null) _since = at;
   }
 
-  /// Фаза и начало движения — чтобы сохранить и восстановить положение.
-  ({double phase, DateTime? since})? get state {
-    final phase = _phase;
-    return phase == null ? null : (phase: phase, since: _since);
-  }
-
-  void restore(double phase, DateTime? since) {
-    _phase = phase;
-    _since = since;
-  }
-
-  /// Движение от фазы [phase], начатое в [since] и законченное в [until],
+  /// Движение от места [cycle], начатое в [since] и законченное в [until],
   /// на самом деле шло в обратную сторону: пересчитываем, где вентилятор
   /// остановился.
-  void replayReversed(double phase, DateTime since, DateTime until) {
-    final travelled =
-        until.difference(since).inMicroseconds / sweep.inMicroseconds;
-    _phase = ((2 - phase) % 2 + travelled) % 2;
+  void replayReversed(double cycle, DateTime since, DateTime until) {
+    final travelled = until.difference(since).inMicroseconds;
+    _cycle = (_mirror(cycle) + travelled) % _period;
     _since = null;
   }
 
-  void forget() {
-    _phase = null;
-    _since = null;
+  /// Место в цикле и начало движения — чтобы сохранить и восстановить.
+  ({double cycle, DateTime? since})? get state {
+    final cycle = _cycle;
+    return cycle == null ? null : (cycle: cycle, since: _since);
   }
+
+  void restore(double cycle, DateTime? since) => _set(cycle, since);
+
+  void forget() => _set(null, null);
 
   double? positionAt(DateTime at) {
-    final phase = _phaseAt(at);
-    if (phase == null) return null;
-    return phase <= 1 ? phase : 2 - phase;
+    final cycle = _cycleAt(at);
+    return cycle == null ? null : _positionOf(cycle);
   }
 
   /// Через сколько вентилятор окажется в [target], если продолжит движение.
   Duration? timeTo(double target, DateTime now) {
-    final phase = _phaseAt(now);
-    if (phase == null) return null;
-    final candidates = [target, 2 - target, target + 2, 4 - target];
-    final next = candidates.where((c) => c >= phase).reduce(_min);
-    return sweep * (next - phase);
+    final cycle = _cycleAt(now);
+    if (cycle == null) return null;
+    final up = target * _sweep;
+    final down = _sweep + _dwell + (1 - target) * _sweep;
+    final candidates = [up, down, up + _period, down + _period];
+    final next = candidates.where((c) => c >= cycle).reduce(_min);
+    return Duration(microseconds: (next - cycle).round());
   }
 
-  double? _phaseAt(DateTime at) {
-    final phase = _phase;
+  void _set(double? cycle, DateTime? since) {
+    _cycle = cycle;
+    _since = since;
+  }
+
+  double _positionOf(double cycle) {
+    if (cycle < _sweep) return cycle / _sweep;
+    if (cycle < _sweep + _dwell) return 1;
+    if (cycle < 2 * _sweep + _dwell) {
+      return 1 - (cycle - _sweep - _dwell) / _sweep;
+    }
+    return 0;
+  }
+
+  /// То же место, но движение в обратную сторону. Во время паузы у края
+  /// разворачиваться некуда — место не меняется.
+  double _mirror(double cycle) {
+    final moving =
+        cycle < _sweep ||
+        (cycle >= _sweep + _dwell && cycle < 2 * _sweep + _dwell);
+    return moving ? 2 * _sweep + _dwell - cycle : cycle;
+  }
+
+  double? _cycleAt(DateTime at) {
+    final cycle = _cycle;
     final since = _since;
-    if (phase == null || since == null || sweep <= Duration.zero) return phase;
-    final travelled =
-        at.difference(since).inMicroseconds / sweep.inMicroseconds;
-    return (phase + travelled) % 2;
+    if (cycle == null || since == null || _sweep <= 0) return cycle;
+    return (cycle + at.difference(since).inMicroseconds) % _period;
   }
 
   static double _min(double a, double b) => a < b ? a : b;

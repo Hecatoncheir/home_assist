@@ -5,6 +5,8 @@ import '../core/cloud/regions.dart';
 import '../core/preferences.dart';
 import 'theme.dart';
 import 'widgets/device_tile.dart';
+import 'widgets/glass.dart';
+import 'widgets/reveal.dart';
 import 'widgets/ui_scale.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -239,15 +241,17 @@ class _Card extends StatelessWidget {
   final EdgeInsets padding;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: context.colors.tile,
+  Widget build(BuildContext context) => RevealBorder(
     borderRadius: tileRadius,
-    clipBehavior: Clip.antiAlias,
-    child: Padding(
-      padding: padding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
+    child: Glass(
+      borderRadius: tileRadius,
+      tint: .58,
+      child: Padding(
+        padding: padding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
+        ),
       ),
     ),
   );
@@ -271,29 +275,32 @@ class _RegionChip extends StatelessWidget {
     final foreground = selected ? c.onAccent : c.ink;
     return Semantics(
       toggled: selected,
-      child: InkWell(
-        onTap: onTap,
+      child: RevealBorder(
         borderRadius: BorderRadius.circular(99),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? c.accent : c.bg,
-            borderRadius: BorderRadius.circular(99),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RegionBadge(region, color: foreground),
-              const SizedBox(width: 8),
-              Text(
-                regionNames[region]!,
-                style: TextStyle(
-                  color: foreground,
-                  fontWeight: FontWeight.w600,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(99),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? c.accent : c.bg,
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RegionBadge(region, color: foreground),
+                const SizedBox(width: 8),
+                Text(
+                  regionNames[region]!,
+                  style: TextStyle(
+                    color: foreground,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

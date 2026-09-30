@@ -11,6 +11,8 @@ import 'swing_tracker.dart';
 abstract interface class SwingCalibrations {
   Duration? swingSweep(String did);
   void saveSwingSweep(String did, Duration sweep);
+  Duration? swingDwell(String did);
+  void saveSwingDwell(String did, Duration dwell);
   SwingSnapshot? swingState(String did);
   void saveSwingState(String did, SwingSnapshot? state);
 }
@@ -18,20 +20,26 @@ abstract interface class SwingCalibrations {
 /// Сохранённое положение вентилятора.
 class SwingSnapshot {
   const SwingSnapshot({
-    required this.phase,
+    required this.cycle,
     required this.since,
     required this.stoppedAt,
     required this.reverseAfter,
   });
 
-  factory SwingSnapshot.fromJson(Map<String, dynamic> json) => SwingSnapshot(
-    phase: (json['phase'] as num).toDouble(),
-    since: _time(json['since']),
-    stoppedAt: _time(json['stoppedAt']),
-    reverseAfter: Duration(milliseconds: json['reverseAfter'] as int),
-  );
+  /// `null` — сохранено в старом формате, который уже не подходит.
+  static SwingSnapshot? fromJson(Map<String, dynamic> json) {
+    final cycle = json['cycle'];
+    if (cycle is! num) return null;
+    return SwingSnapshot(
+      cycle: cycle.toDouble(),
+      since: _time(json['since']),
+      stoppedAt: _time(json['stoppedAt']),
+      reverseAfter: Duration(milliseconds: json['reverseAfter'] as int),
+    );
+  }
 
-  final double phase;
+  /// Место в цикле качания, микросекунды.
+  final double cycle;
 
   /// Когда начал движение; `null` — стоял.
   final DateTime? since;
@@ -39,7 +47,7 @@ class SwingSnapshot {
   final Duration reverseAfter;
 
   Map<String, dynamic> toJson() => {
-    'phase': phase,
+    'cycle': cycle,
     'since': since?.millisecondsSinceEpoch,
     'stoppedAt': stoppedAt?.millisecondsSinceEpoch,
     'reverseAfter': reverseAfter.inMilliseconds,
@@ -60,6 +68,7 @@ class SwingController extends ChangeNotifier {
        _now = clock ?? DateTime.now,
        _tracker = SwingTracker(
          calibrations?.swingSweep(_device.device.did) ?? Duration.zero,
+         dwell: calibrations?.swingDwell(_device.device.did) ?? Duration.zero,
        ) {
     _device.addListener(_watchSwing);
     _restore();
@@ -69,8 +78,18 @@ class SwingController extends ChangeNotifier {
   /// расходится с настоящим положением.
   static const _maxUnwatchedSwing = Duration(minutes: 2);
 
-  /// Короче этого — случайное нажатие, а не проход по дуге.
-  static const minSweep = Duration(seconds: 2);
+  /// Проход короче этого — случайное нажатие, а не движение по дуге.
+  static const minSweep = Duration(milliseconds: 700);
+
+  /// Дольше этого вентилятор у края не стоит — значит, кнопку держали
+  /// не во время паузы.
+  static const _maxDwell = Duration(seconds: 6);
+
+  /// Проход дольше этого — кнопку другого края нажали не сразу.
+  static const _maxSweep = Duration(seconds: 60);
+
+  /// Когда и у какого края отпустили кнопку: для замера паузы у края.
+  ({int edge, DateTime at})? _lastRelease;
 
   /// Сколько после своей команды не верить чужому состоянию качания:
   /// опрос мог уйти до команды и вернуть старое значение.
@@ -135,27 +154,68 @@ class SwingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Вентилятор отошёл от края и идёт к краю [edge] — пользователь
-  /// зажал кнопку этого края.
+  /// Вентилятор дошёл до края [edge] и замер — пользователь зажал кнопку
+  /// этого края. Если перед этим отпускали кнопку другого края, промежуток
+  /// между отпусканием и нажатием — чистый проход от края до края.
   void holdStart(int edge) {
     _resultTimer?.cancel();
     holdResult = null;
     _holdStart = _now();
     holdingEdge = edge;
+    _measureSweep(edge);
+    if (calibrated) _tracker.reachedEdge(edge, _now());
     notifyListeners();
   }
 
-  /// Вентилятор дошёл до края и развернулся — кнопку отпустили.
+  void _measureSweep(int edge) {
+    final release = _lastRelease;
+    _lastRelease = null;
+    if (release == null || release.edge == edge) return;
+    final sweep = _now().difference(release.at);
+    if (sweep < minSweep || sweep > _maxSweep) {
+      _sweepRejected = true;
+      return;
+    }
+    _tracker.sweep = sweep;
+    _calibrations?.saveSwingSweep(_device.device.did, sweep);
+    calibrating = false;
+    _stoppedAt = null;
+    _expectedSwing = true;
+  }
+
+  /// Кнопку одного края отпустили — ждём, когда отметят другой край.
+  bool get awaitingOtherEdge =>
+      (calibrating || !calibrated) && _lastRelease != null && !holding;
+
+  /// Пауза у края замерена хотя бы раз.
+  bool get dwellMeasured => _tracker.dwell > Duration.zero;
+  Duration get dwell => _tracker.dwell;
+
+  /// Последний проход не засчитан: слишком короткий или слишком длинный.
+  bool _sweepRejected = false;
+
+  /// Вентилятор тронулся от края — кнопку отпустили. Время удержания —
+  /// пауза у края.
   void holdEnd() {
     final start = _holdStart;
     final edge = holdingEdge;
     _holdStart = null;
     holdingEdge = null;
     if (start == null || edge == null) return;
-    final sweep = _now().difference(start);
-    final accepted = sweep >= minSweep;
-    if (accepted) _calibrate(edge, sweep);
+    final dwell = _now().difference(start);
+    final accepted = dwell <= _maxDwell && !_sweepRejected;
+    _sweepRejected = false;
+    if (dwell <= _maxDwell) _leaveEdge(edge, dwell);
     _showResult((edge: edge, accepted: accepted));
+  }
+
+  void _leaveEdge(int edge, Duration dwell) {
+    _tracker.dwell = dwell;
+    _calibrations?.saveSwingDwell(_device.device.did, dwell);
+    _lastRelease = (edge: edge, at: _now());
+    if (!calibrated) return;
+    _tracker.leftEdge(edge, _now());
+    _persist();
   }
 
   /// Итог последнего нажатия кнопки края — показывается пару секунд.
@@ -197,7 +257,7 @@ class SwingController extends ChangeNotifier {
     final stoppedAt = move?.stoppedAt;
     if (move == null || stoppedAt == null) return;
     // Уже остановился не там: он шёл в обратную сторону всё это время.
-    _tracker.replayReversed(move.phase, move.since, stoppedAt);
+    _tracker.replayReversed(move.cycle, move.since, stoppedAt);
     _stoppedAt = stoppedAt;
     _learnReversal();
     _persist();
@@ -214,7 +274,7 @@ class SwingController extends ChangeNotifier {
   }
 
   /// Откуда и куда поехали — чтобы исправить, если поехали не туда.
-  ({double phase, DateTime since, double target, DateTime? stoppedAt})?
+  ({double cycle, DateTime since, double target, DateTime? stoppedAt})?
   _lastMove;
 
   void _rememberMove() {
@@ -222,7 +282,7 @@ class SwingController extends ChangeNotifier {
     final since = state?.since;
     if (state == null || since == null) return;
     _lastMove = (
-      phase: state.phase,
+      cycle: state.cycle,
       since: since,
       target: target!,
       stoppedAt: null,
@@ -267,7 +327,7 @@ class SwingController extends ChangeNotifier {
     final tooLong =
         since != null && _now().difference(since) > _maxUnwatchedSwing;
     if (tooLong) return;
-    _tracker.restore(saved.phase, since);
+    _tracker.restore(saved.cycle, since);
     _stoppedAt = saved.stoppedAt;
     reverseAfter = saved.reverseAfter;
     _expectedSwing = since != null;
@@ -282,23 +342,12 @@ class SwingController extends ChangeNotifier {
       state == null
           ? null
           : SwingSnapshot(
-              phase: state.phase,
+              cycle: state.cycle,
               since: state.since,
               stoppedAt: _stoppedAt,
               reverseAfter: reverseAfter,
             ),
     );
-  }
-
-  void _calibrate(int edge, Duration sweep) {
-    calibrating = false;
-    _stoppedAt = null;
-    _tracker
-      ..sweep = sweep
-      ..reachedEdge(edge, _now());
-    _expectedSwing = true;
-    _calibrations?.saveSwingSweep(_device.device.did, sweep);
-    _persist();
   }
 
   /// После короткой паузы вентилятор продолжает в ту же сторону,
@@ -327,7 +376,7 @@ class SwingController extends ChangeNotifier {
       final move = _lastMove;
       if (move != null) {
         _lastMove = (
-          phase: move.phase,
+          cycle: move.cycle,
           since: move.since,
           target: move.target,
           stoppedAt: _stoppedAt,
