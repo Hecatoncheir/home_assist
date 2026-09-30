@@ -43,18 +43,18 @@ jobs:
           - name: windows
             os: windows-latest
             build: flutter build windows --release
-            package: 7z a home_assist-windows-x64.zip ./build/windows/x64/runner/Release/*
-            artifact: home_assist-windows-x64.zip
+            package: bash packaging/windows/build_setup.sh
+            artifact: home_assist-windows-setup.exe
           - name: linux
             os: ubuntu-latest
             build: flutter build linux --release
-            package: tar -czf home_assist-linux-x64.tar.gz -C build/linux/x64/release/bundle .
-            artifact: home_assist-linux-x64.tar.gz
+            package: bash packaging/linux/build_run.sh
+            artifact: home_assist-linux-x64.run
           - name: macos
             os: macos-latest
             build: flutter build macos --release
-            package: ditto -c -k --keepParent build/macos/Build/Products/Release/home_assist.app home_assist-macos.zip
-            artifact: home_assist-macos.zip
+            package: bash packaging/macos/build_dmg.sh
+            artifact: home_assist-macos.dmg
           - name: android
             os: ubuntu-latest
             build: flutter build apk --release
@@ -80,7 +80,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev
+            libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev makeself
       - run: flutter pub get
       - run: ${{ matrix.build }}
       - if: matrix.package

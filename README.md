@@ -66,11 +66,11 @@ Android и iOS. Главное отличие от Mi Home — **устройс�
 [Actions](https://github.com/Hecatoncheir/home_assist/actions/workflows/ci.yml):
 откройте запуск со сборками и загляните в раздел Artifacts (нужен вход в GitHub).
 
-| Платформа | Файл | Как запустить |
+| Платформа | Файл | Как установить |
 | --- | --- | --- |
-| Windows | `home_assist-windows-x64.zip` | Распаковать, запустить `home_assist.exe` |
-| Linux | `home_assist-linux-x64.tar.gz` | Распаковать, запустить `home_assist`; нужен `libsecret` |
-| macOS | `home_assist-macos.zip` | Распаковать; приложение не подписано, первый запуск — через правый щелчок → «Открыть» |
+| Windows | `home_assist-windows-setup.exe` | Запустить установщик. Права администратора не нужны: приложение ставится для текущего пользователя, удаляется через «Приложения» в параметрах Windows |
+| Linux | `home_assist-linux-x64.run` | `chmod +x home_assist-linux-x64.run && ./home_assist-linux-x64.run` — приложение появится в меню и как команда `home-assist`. Нужен `libsecret` |
+| macOS | `home_assist-macos.dmg` | Открыть образ и перетащить Home Assist в «Программы». Приложение не подписано: первый запуск — правый щелчок → «Открыть» |
 | Android | `home_assist-android.apk` | Установить, разрешив установку из неизвестных источников |
 | iOS | — | Только сборка из исходников со своей подписью Apple |
 
@@ -168,6 +168,7 @@ lib/
   demo/         демо-режим с выдуманными устройствами
   ui/           экраны и тема
 design/         HTML-прототип интерфейса
+packaging/      установщики: Inno Setup для Windows, makeself для Linux, dmg для macOS
 assets/fonts/   шрифты Nunito, Nunito Sans и JetBrains Mono
 docs/           скриншоты для README
 test/           тесты; сеть в них подменена, образцы спецификаций в fixtures/
