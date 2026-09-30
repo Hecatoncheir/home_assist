@@ -4,6 +4,7 @@ import '../core/accounts/session.dart';
 import '../core/accounts/session_store.dart';
 import '../core/preferences.dart';
 import '../core/spec/spec_repository.dart';
+import '../demo/demo.dart';
 import 'home_shell.dart';
 import 'login_page.dart';
 import 'theme.dart';
@@ -25,6 +26,9 @@ class HomeAssistApp extends StatefulWidget {
 }
 
 class _HomeAssistAppState extends State<HomeAssistApp> {
+  /// `flutter run --dart-define=DEMO=true` открывает демо сразу, без входа.
+  static const _startInDemo = bool.fromEnvironment('DEMO');
+
   Session? _session;
   bool _loading = true;
 
@@ -35,7 +39,7 @@ class _HomeAssistAppState extends State<HomeAssistApp> {
   }
 
   Future<void> _restore() async {
-    final session = await widget.store.load();
+    final session = _startInDemo ? demoSession : await widget.store.load();
     setState(() {
       _session = session;
       _loading = false;
@@ -43,7 +47,7 @@ class _HomeAssistAppState extends State<HomeAssistApp> {
   }
 
   Future<void> _logIn(Session session) async {
-    await widget.store.save(session);
+    if (!session.isDemo) await widget.store.save(session);
     setState(() => _session = session);
   }
 

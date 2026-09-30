@@ -16,6 +16,9 @@ class Session {
   final String ssecurity;
   final String serviceToken;
 
+  /// Сессия демо-режима: без настоящего аккаунта и без сети Xiaomi.
+  bool get isDemo => userId == 'demo';
+
   Map<String, dynamic> toJson() => {
     'userId': userId,
     'ssecurity': ssecurity,

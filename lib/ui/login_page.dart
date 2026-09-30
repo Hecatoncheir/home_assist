@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/accounts/session.dart';
 import '../core/cloud/xiaomi_login.dart';
+import '../demo/demo.dart';
 import 'theme.dart';
 import 'widgets/logo.dart';
 
@@ -122,11 +123,28 @@ class _LoginPageState extends State<LoginPage> {
                 onPressed: _busy ? null : _submit,
                 child: Text(_busy ? 'Входим…' : _buttonLabel),
               ),
+              const SizedBox(height: 8),
+              if (step == null)
+                TextButton(
+                  onPressed: () => widget.onLoggedIn(demoSession),
+                  child: const Text('Посмотреть демо без аккаунта'),
+                )
+              else
+                TextButton(onPressed: _startOver, child: const Text('Назад')),
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// Возврат с шага капчи или кода к вводу логина и пароля.
+  void _startOver() {
+    _extra.clear();
+    setState(() {
+      _step = null;
+      _error = null;
+    });
   }
 
   String get _buttonLabel => _step == null ? 'Войти' : 'Продолжить';

@@ -7,6 +7,7 @@ import '../core/devices/device_repository.dart';
 import '../core/devices/device_transport.dart';
 import '../core/preferences.dart';
 import '../core/spec/spec_repository.dart';
+import '../demo/demo.dart';
 import 'devices_page.dart';
 import 'settings_page.dart';
 import 'widgets/logo.dart';
@@ -37,9 +38,15 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   late final _cloud = MiCloudClient(widget.session);
-  late final _repository = DeviceRepository(_cloud);
-  late final _transport = CloudTransport(_cloud);
+  late final _repository = _demo
+      ? DemoDeviceRepository()
+      : DeviceRepository(_cloud);
+  late final DeviceTransport _transport = _demo
+      ? DemoTransport(widget.specs)
+      : CloudTransport(_cloud);
   int _index = 0;
+
+  bool get _demo => widget.session.isDemo;
 
   void _select(int index) => setState(() => _index = index);
 

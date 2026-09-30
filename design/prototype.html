@@ -76,6 +76,7 @@ h2 { font: 500 13px/1 var(--display); margin: 0; text-transform: uppercase; lett
 .alert svg { color: var(--bad); }
 .alert p { margin: 0; flex: 1; min-width: 180px; }
 .link { color: var(--accent); font-weight: 600; padding: 6px 4px; }
+.link.back { justify-self: start; }
 
 /* Плитки устройств */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; }
@@ -310,7 +311,8 @@ function homeView() {
 }
 
 function settingsView() {
-  const accounts = state.accounts.map((a) => `<div><span class="ava">${a.name[0]}</span><span class="grow"><b>${a.name}</b><small class="mono">ID ${a.id} · ${a.regions}</small></span></div>`);
+  const accounts = state.accounts.map((a, i) => `<div><span class="ava">${a.name[0]}</span><span class="grow"><b>${a.name}</b><small class="mono">ID ${a.id} · ${a.regions}</small></span>
+      <button class="link" style="color:var(--bad)" data-act="remove-account" data-v="${i}">${state.removing === i ? 'Точно убрать?' : 'Убрать'}</button></div>`);
   const regions = Object.entries(REGIONS).map(([k, name]) => {
     const n = devices.filter((d) => d.region === k).length;
     return `<div><span class="badge">${k.toUpperCase()}</span><span class="grow">${name}<small>${n ? `Устройств: ${n}` : 'Устройств нет'}</small></span>
@@ -345,6 +347,7 @@ function loginView() {
   ];
   const bars = steps.map((_, i) => `<i class="${i <= state.loginStep ? 'done' : ''}"></i>`).join('');
   return `<div class="login"><form id="login" novalidate>
+    ${state.adding || state.loginStep ? `<button type="button" class="link back" data-act="login-back">← ${state.loginStep ? 'Назад' : 'К настройкам'}</button>` : ''}
     ${LOGO('lit')}
     <h1>Весь дом в&nbsp;одном списке</h1>
     <p style="margin:0;color:var(--muted)">Устройства Xiaomi из всех регионов и аккаунтов. Пароль не сохраняется.</p>
@@ -412,12 +415,22 @@ const actions = {
   toggle: (el) => { const d = byId(el.dataset.id); d.on = !d.on; navigator.vibrate?.(8); render(); },
   set: (el) => { const raw = el.dataset.v; byId(state.openId).v[el.dataset.k] = raw === 'true' ? true : raw === 'false' ? false : raw; render(); },
   filter: (el) => { state.filter = el.dataset.v; state.enter = true; render(); },
-  nav: (el) => { state.view = el.dataset.v; state.enter = true; render(); },
+  nav: (el) => { state.removing = null; state.view = el.dataset.v; state.enter = true; render(); },
   theme: (el) => { state.theme = el.dataset.v; store.set('theme', state.theme); applyTheme(); render(); },
   poll: (el) => { state.polled[el.dataset.v] = !state.polled[el.dataset.v]; render(); },
   retry: (el) => { state.failed = state.failed.filter((r) => r !== el.dataset.v); render(); toast(`${REGIONS[el.dataset.v]}: на связи, устройств нет`); },
   refresh: () => { state.loading = true; render(); setTimeout(() => { state.loading = false; render(); toast('Список обновлён'); }, 900); },
   logout: () => { state.view = 'login'; state.loginStep = 0; state.adding = false; render(); },
+  'login-back': () => { if (state.loginStep) state.loginStep--; else state.view = 'settings'; state.enter = true; render(); },
+  'remove-account': (el) => {
+    const index = Number(el.dataset.v);
+    if (state.removing !== index) { state.removing = index; return render(); }
+    state.accounts.splice(index, 1);
+    state.removing = null;
+    if (!state.accounts.length) return actions.logout();
+    render();
+    toast('Аккаунт убран');
+  },
   'add-account': () => { state.view = 'login'; state.loginStep = 0; state.adding = true; render(); },
 };
 
@@ -431,7 +444,8 @@ document.addEventListener('click', (e) => {
 document.addEventListener('submit', (e) => {
   e.preventDefault();
   if (state.loginStep < 2) { state.loginStep++; return render(); }
-  if (state.adding) state.accounts.push({ name: 'Второй', id: '1877••••03', regions: 'CN' });
+  if (!state.accounts.length) state.accounts.push({ name: 'Основной', id: '6201••••48', regions: 'RU, CN' });
+  else if (state.adding) state.accounts.push({ name: 'Второй', id: '1877••••03', regions: 'CN' });
   state.view = state.adding ? 'settings' : 'home';
   state.enter = true;
   render();
