@@ -8,7 +8,12 @@ import 'theme.dart';
 import 'widgets/logo.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.onLoggedIn, this.onCancel});
+  const LoginPage({
+    super.key,
+    required this.onLoggedIn,
+    this.onCancel,
+    this.login,
+  });
 
   final Future<void> Function(Session session) onLoggedIn;
 
@@ -16,12 +21,15 @@ class LoginPage extends StatefulWidget {
   /// тогда с него можно вернуться.
   final VoidCallback? onCancel;
 
+  /// Подменяется в тестах; по умолчанию — настоящий сервер Xiaomi.
+  final XiaomiLogin? login;
+
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _login = XiaomiLogin();
+  late final _login = widget.login ?? XiaomiLogin();
   final _user = TextEditingController();
   final _password = TextEditingController();
   final _extra = TextEditingController();

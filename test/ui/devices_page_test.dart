@@ -56,7 +56,7 @@ void main() {
     File('${cacheDir.path}/spec/dmaker.fan.p5.json')
       ..createSync(recursive: true)
       ..writeAsStringSync(
-        File('test/fixtures/dmaker.fan.p5.json').readAsStringSync(),
+        File('test/fixtures/spec/dmaker.fan.p5.json').readAsStringSync(),
       );
   });
   tearDown(() => cacheDir.deleteSync(recursive: true));

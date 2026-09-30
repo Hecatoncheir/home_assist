@@ -119,7 +119,9 @@ class DeviceTile extends StatelessWidget {
         ),
         child: Material(
           type: MaterialType.transparency,
-          textStyle: TextStyle(color: ink),
+          // Шрифт темы, а не шрифт Material по умолчанию.
+          textStyle: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: ink),
           child: InkWell(
             onTap: onTap,
             child: Padding(

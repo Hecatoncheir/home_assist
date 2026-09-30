@@ -9,11 +9,20 @@ Android и iOS. Главное отличие от Mi Home — **устройс�
 
 ![Главный экран](docs/screenshots/home.png)
 
-| Панель устройства | Тёмная тема | Настройки на узком экране |
-| --- | --- | --- |
-| ![Панель устройства](docs/screenshots/device.png) | ![Тёмная тема](docs/screenshots/home-dark.png) | ![Настройки](docs/screenshots/phone.png) |
+| Панель устройства строится из его спецификации | Тёмная тема |
+| --- | --- |
+| ![Панель вентилятора](docs/screenshots/device.png) | ![Тёмная тема](docs/screenshots/home-dark.png) |
 
-Скриншоты сняты в демо-режиме, устройства на них выдуманы.
+| Дом на телефоне | Настройки лампы | Несколько аккаунтов |
+| --- | --- | --- |
+| ![Дом на телефоне](docs/screenshots/phone-home.png) | ![Настройки лампы](docs/screenshots/phone-device.png) | ![Настройки](docs/screenshots/phone-settings.png) |
+
+| Вход по паролю | Вход по QR-коду |
+| --- | --- |
+| ![Вход по паролю](docs/screenshots/phone-login.png) | ![Вход по QR-коду](docs/screenshots/phone-qr.png) |
+
+Скриншоты сняты в демо-режиме: устройства и аккаунты выдуманы, QR-код —
+картинка-пример.
 
 > **Состояние проекта.** Это ранняя версия. Подпись запросов, разбор
 > спецификаций, список устройств и интерфейс покрыты тестами, но вход
@@ -140,6 +149,13 @@ flutter test
 dart format lib test
 ```
 
+Скриншоты для README снимаются тестом с настоящих экранов в демо-режиме,
+окна и мышь при этом не используются:
+
+```bash
+SCREENSHOTS=1 flutter test test/screenshots
+```
+
 Устройство проекта:
 
 ```
@@ -152,6 +168,7 @@ lib/
   demo/         демо-режим с выдуманными устройствами
   ui/           экраны и тема
 design/         HTML-прототип интерфейса
+assets/fonts/   шрифты Onest, Unbounded и JetBrains Mono
 docs/           скриншоты для README
 test/           тесты; сеть в них подменена, образцы спецификаций в fixtures/
 ```
@@ -174,6 +191,9 @@ git push origin v0.1.0
 перестанет работать до обновления. Используйте на свой риск и только
 со своим аккаунтом. Xiaomi, Mi Home и Mijia — товарные знаки их владельцев;
 проект с ними не связан.
+
+Шрифты в сборке распространяются по SIL Open Font License 1.1, подробности —
+в [assets/fonts/LICENSES.md](assets/fonts/LICENSES.md).
 
 Проект опирается на исследования открытых проектов:
 [ha_xiaomi_home](https://github.com/XiaoMi/ha_xiaomi_home),

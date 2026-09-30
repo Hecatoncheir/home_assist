@@ -10,7 +10,8 @@ const _oldType = 'urn:miot-spec-v2:device:fan:0000A005:dmaker-p5:1';
 const _newType = 'urn:miot-spec-v2:device:fan:0000A005:dmaker-p5:2';
 
 void main() {
-  final fixture = File('test/fixtures/dmaker.fan.p5.json').readAsStringSync();
+  final fixture = File('test/fixtures/spec/dmaker.fan.p5.json')
+      .readAsStringSync();
   late Directory cacheDir;
   late List<Uri> requests;
 
