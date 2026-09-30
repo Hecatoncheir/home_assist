@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
@@ -27,6 +28,23 @@ class TwoFactorRequired extends LoginStep {
   final bool viaEmail;
 }
 
+/// QR-код для входа: его сканируют в Mi Home на телефоне.
+class QrChallenge {
+  QrChallenge({
+    required this.image,
+    required this.loginUrl,
+    required this.pollUrl,
+    required this.timeout,
+  });
+
+  final Uint8List image;
+
+  /// Та же ссылка, что зашита в QR-код: её можно открыть на телефоне.
+  final String loginUrl;
+  final Uri pollUrl;
+  final Duration timeout;
+}
+
 class LoginException implements Exception {
   LoginException(this.message);
   final String message;
@@ -35,7 +53,7 @@ class LoginException implements Exception {
   String toString() => message;
 }
 
-/// Вход в аккаунт Xiaomi по логину и паролю (`sid=xiaomiio`).
+/// Вход в аккаунт Xiaomi (`sid=xiaomiio`): по логину и паролю или по QR-коду.
 class XiaomiLogin {
   XiaomiLogin({http.Client? client, Random? random})
     : _http = CookieClient(
@@ -56,6 +74,66 @@ class XiaomiLogin {
 
   final CookieClient _http;
   _TwoFactor? _twoFactor;
+
+  /// Меняется при отмене: ожидание старого кода по нему понимает,
+  /// что пора остановиться.
+  int _qrGeneration = 0;
+
+  /// Запрашивает QR-код для входа без пароля.
+  Future<QrChallenge> startQr() async {
+    final response = await _http.get(
+      Uri.https(_host, '/longPolling/loginUrl', {
+        '_qrsize': '480',
+        'qs': '%3Fsid%3D$_sid%26_json%3Dtrue',
+        'callback': 'https://sts.api.io.mi.com/sts',
+        '_hasLogo': 'false',
+        'sid': _sid,
+        'serviceParam': '',
+        '_locale': _locale,
+        '_dc': '${DateTime.now().millisecondsSinceEpoch}',
+      }),
+    );
+    final json = parseXiaomiJson(response.body);
+    final qr = json['qr'];
+    final poll = json['lp'];
+    if (qr is! String || poll is! String) {
+      throw LoginException('Сервер Xiaomi не выдал QR-код');
+    }
+    final image = await _http.get(Uri.parse(qr));
+    return QrChallenge(
+      image: image.bodyBytes,
+      loginUrl: '${json['loginUrl'] ?? ''}',
+      pollUrl: Uri.parse(poll),
+      timeout: Duration(seconds: int.tryParse('${json['timeout']}') ?? 300),
+    );
+  }
+
+  /// Ждёт, пока код отсканируют и подтвердят на телефоне.
+  /// Сервер держит каждый запрос открытым, пока не случится одно из двух.
+  Future<LoginStep> waitForQr(QrChallenge challenge) async {
+    final generation = _qrGeneration;
+    final deadline = DateTime.now().add(challenge.timeout);
+    while (generation == _qrGeneration && DateTime.now().isBefore(deadline)) {
+      final response = await _pollOnce(challenge.pollUrl);
+      if (response == null) continue;
+      if (response.statusCode != 200) {
+        throw LoginException('Вход по QR-коду не удался, получите новый код');
+      }
+      return _finish(parseXiaomiJson(response.body));
+    }
+    throw LoginException('QR-код устарел, получите новый');
+  }
+
+  /// Прекращает ожидание, например когда пользователь ушёл с экрана.
+  void cancelQr() => _qrGeneration++;
+
+  Future<http.Response?> _pollOnce(Uri url) async {
+    try {
+      return await _http.get(url);
+    } on TimeoutException {
+      return null;
+    }
+  }
 
   Future<LoginStep> submit({
     required String user,

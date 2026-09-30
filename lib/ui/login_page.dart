@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/accounts/session.dart';
 import '../core/cloud/xiaomi_login.dart';
 import '../demo/demo.dart';
+import 'qr_login_view.dart';
 import 'theme.dart';
 import 'widgets/logo.dart';
 
@@ -29,6 +30,9 @@ class _LoginPageState extends State<LoginPage> {
   LoginStep? _step;
   String? _error;
   bool _busy = false;
+
+  /// Вход по QR-коду вместо логина и пароля.
+  bool _qrMode = false;
 
   @override
   void dispose() {
@@ -72,8 +76,6 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final step = _step;
-    final error = _error;
     final c = context.colors;
     return Scaffold(
       body: Center(
@@ -104,54 +106,74 @@ class _LoginPageState extends State<LoginPage> {
                 style: TextStyle(color: c.muted),
               ),
               const SizedBox(height: 22),
-              TextField(
-                controller: _user,
-                decoration: const InputDecoration(
-                  labelText: 'Почта, телефон или ID',
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _password,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Пароль'),
-                onSubmitted: (_) => _submit(),
-              ),
-              if (step is CaptchaRequired) ...[
-                const SizedBox(height: 14),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: Image.memory(step.image, height: 64),
-                ),
-                const SizedBox(height: 14),
-                _extraField('Текст с картинки'),
-              ],
-              if (step is TwoFactorRequired) ...[
-                const SizedBox(height: 14),
-                _extraField(step.viaEmail ? 'Код из письма' : 'Код из SMS'),
-              ],
-              if (error != null) ...[
-                const SizedBox(height: 14),
-                Text(error, style: TextStyle(color: c.bad)),
-              ],
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: _busy ? null : _submit,
-                child: Text(_busy ? 'Входим…' : _buttonLabel),
-              ),
-              const SizedBox(height: 8),
-              if (step != null)
-                TextButton(onPressed: _startOver, child: const Text('Назад'))
-              else if (widget.onCancel == null)
-                TextButton(
-                  onPressed: () => widget.onLoggedIn(demoSession),
-                  child: const Text('Посмотреть демо без аккаунта'),
-                ),
+              if (_qrMode)
+                QrLoginView(
+                  login: _login,
+                  onLoggedIn: widget.onLoggedIn,
+                  onBack: () => setState(() => _qrMode = false),
+                )
+              else
+                ..._passwordForm(c),
             ],
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _passwordForm(HomeColors c) {
+    final step = _step;
+    final error = _error;
+    return [
+      TextField(
+        controller: _user,
+        decoration: const InputDecoration(labelText: 'Почта, телефон или ID'),
+      ),
+      const SizedBox(height: 14),
+      TextField(
+        controller: _password,
+        obscureText: true,
+        decoration: const InputDecoration(labelText: 'Пароль'),
+        onSubmitted: (_) => _submit(),
+      ),
+      if (step is CaptchaRequired) ...[
+        const SizedBox(height: 14),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Image.memory(step.image, height: 64),
+        ),
+        const SizedBox(height: 14),
+        _extraField('Текст с картинки'),
+      ],
+      if (step is TwoFactorRequired) ...[
+        const SizedBox(height: 14),
+        _extraField(step.viaEmail ? 'Код из письма' : 'Код из SMS'),
+      ],
+      if (error != null) ...[
+        const SizedBox(height: 14),
+        Text(error, style: TextStyle(color: c.bad)),
+      ],
+      const SizedBox(height: 18),
+      FilledButton(
+        onPressed: _busy ? null : _submit,
+        child: Text(_busy ? 'Входим…' : _buttonLabel),
+      ),
+      const SizedBox(height: 8),
+      if (step != null)
+        TextButton(onPressed: _startOver, child: const Text('Назад'))
+      else ...[
+        TextButton.icon(
+          onPressed: () => setState(() => _qrMode = true),
+          icon: const Icon(Icons.qr_code_2),
+          label: const Text('Войти по QR-коду'),
+        ),
+        if (widget.onCancel == null)
+          TextButton(
+            onPressed: () => widget.onLoggedIn(demoSession),
+            child: const Text('Посмотреть демо без аккаунта'),
+          ),
+      ],
+    ];
   }
 
   /// Возврат с шага капчи или кода к вводу логина и пароля.
