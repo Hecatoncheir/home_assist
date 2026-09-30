@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:home_assist/core/accounts/session.dart';
 import 'package:home_assist/core/cloud/mi_cloud_client.dart';
 import 'package:home_assist/core/devices/device_controller.dart';
@@ -50,7 +49,6 @@ void main() {
   late Directory cacheDir;
 
   setUp(() {
-    GoogleFonts.config.allowRuntimeFetching = false;
     SharedPreferences.setMockInitialValues({});
     cacheDir = Directory.systemTemp.createTempSync('specs');
     File('${cacheDir.path}/spec/dmaker.fan.p5.json')

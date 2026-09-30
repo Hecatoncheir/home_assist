@@ -5,6 +5,6 @@
 
 | Шрифт | Правообладатель | Источник |
 | --- | --- | --- |
-| Onest | The Onest Project Authors | https://github.com/googlefonts/onest |
-| Unbounded | The Unbounded Project Authors | https://github.com/googlefonts/unbounded |
+| Nunito | The Nunito Project Authors | https://github.com/googlefonts/nunito |
+| Nunito Sans | The Nunito Sans Project Authors | https://github.com/googlefonts/NunitoSans |
 | JetBrains Mono | The JetBrains Mono Project Authors | https://github.com/JetBrains/JetBrainsMono |

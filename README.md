@@ -168,7 +168,7 @@ lib/
   demo/         демо-режим с выдуманными устройствами
   ui/           экраны и тема
 design/         HTML-прототип интерфейса
-assets/fonts/   шрифты Onest, Unbounded и JetBrains Mono
+assets/fonts/   шрифты Nunito, Nunito Sans и JetBrains Mono
 docs/           скриншоты для README
 test/           тесты; сеть в них подменена, образцы спецификаций в fixtures/
 ```

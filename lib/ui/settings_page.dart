@@ -182,7 +182,7 @@ class _SectionTitle extends StatelessWidget {
     child: Text(
       text.toUpperCase(),
       style: context
-          .display(12, weight: FontWeight.w500)
+          .display(12, weight: FontWeight.w700)
           .copyWith(color: context.colors.muted, letterSpacing: 1),
     ),
   );

@@ -99,7 +99,7 @@ class _DeviceDetailsState extends State<_DeviceDetails> {
               Expanded(
                 child: Text(
                   device.name,
-                  style: context.display(17, weight: FontWeight.w500),
+                  style: context.display(17, weight: FontWeight.w700),
                 ),
               ),
               IconButton(

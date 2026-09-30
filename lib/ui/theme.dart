@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Палитра приложения. Идея — дом вечером: включённое устройство светится
 /// тёплым (`glow*`), всё остальное остаётся холодным и спокойным.
@@ -76,9 +75,10 @@ class HomeColors extends ThemeExtension<HomeColors> {
 extension HomeTheme on BuildContext {
   HomeColors get colors => Theme.of(this).extension<HomeColors>()!;
 
-  /// Заголовки и крупные числа.
-  TextStyle display(double size, {FontWeight weight = FontWeight.w700}) =>
-      GoogleFonts.unbounded(
+  /// Заголовки и крупные числа: округлый Nunito.
+  TextStyle display(double size, {FontWeight weight = FontWeight.w800}) =>
+      TextStyle(
+        fontFamily: 'Nunito',
         fontSize: size,
         fontWeight: weight,
         height: 1.15,
@@ -86,8 +86,11 @@ extension HomeTheme on BuildContext {
       );
 
   /// Технические значения: модель, DID, IP.
-  TextStyle mono({double size = 12, Color? color}) =>
-      GoogleFonts.jetBrainsMono(fontSize: size, color: color ?? colors.muted);
+  TextStyle mono({double size = 12, Color? color}) => TextStyle(
+    fontFamily: 'JetBrainsMono',
+    fontSize: size,
+    color: color ?? colors.muted,
+  );
 }
 
 const tileRadius = BorderRadius.all(Radius.circular(22));
@@ -113,7 +116,7 @@ ThemeData buildTheme(HomeColors c, Brightness brightness) {
     colorScheme: scheme,
     scaffoldBackgroundColor: c.bg,
     extensions: [c],
-    fontFamily: GoogleFonts.onest().fontFamily,
+    fontFamily: 'NunitoSans',
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: c.tile,

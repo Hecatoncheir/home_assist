@@ -55,7 +55,7 @@ class ServiceSection extends StatelessWidget {
         Text(
           service.description.toUpperCase(),
           style: context
-              .display(11, weight: FontWeight.w500)
+              .display(11, weight: FontWeight.w700)
               .copyWith(color: context.colors.muted, letterSpacing: 1),
         ),
         const SizedBox(height: 8),

@@ -11,7 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:home_assist/core/accounts/session.dart';
 import 'package:home_assist/core/cloud/xiaomi_login.dart';
 import 'package:home_assist/core/preferences.dart';
@@ -37,10 +36,9 @@ void main() {
   final specs = SpecRepository(cacheDir: Directory('test/fixtures'));
 
   setUpAll(() async {
-    GoogleFonts.config.allowRuntimeFetching = false;
     SharedPreferences.setMockInitialValues({});
     prefs = await Preferences.load();
-    await _loadIconFont();
+    await _loadFonts();
   });
 
   Future<void> render(
@@ -166,15 +164,32 @@ Future<void> _save(WidgetTester tester, String name) async {
   });
 }
 
-/// В тестах шрифт значков Material не подключён — берём его из Flutter SDK.
-Future<void> _loadIconFont() async {
+/// В тестах шрифты приложения не подключены — загружаем их из файлов.
+/// Шрифт значков Material берём из Flutter SDK.
+Future<void> _loadFonts() async {
   final root = Platform.environment['FLUTTER_ROOT'] ?? '';
-  final file = File(
-    '$root/bin/cache/artifacts/material_fonts/materialicons-regular.otf',
-  );
-  final loader = FontLoader('MaterialIcons')
-    ..addFont(Future.value(ByteData.sublistView(file.readAsBytesSync())));
-  await loader.load();
+  final families = {
+    'MaterialIcons': [
+      '$root/bin/cache/artifacts/material_fonts/materialicons-regular.otf',
+    ],
+    'NunitoSans': [
+      for (final weight in ['Regular', 'SemiBold', 'Bold'])
+        'assets/fonts/NunitoSans-$weight.ttf',
+    ],
+    'Nunito': [
+      for (final weight in ['SemiBold', 'Bold', 'ExtraBold'])
+        'assets/fonts/Nunito-$weight.ttf',
+    ],
+    'JetBrainsMono': ['assets/fonts/JetBrainsMono-Regular.ttf'],
+  };
+  for (final MapEntry(key: family, value: paths) in families.entries) {
+    final loader = FontLoader(family);
+    for (final path in paths) {
+      final bytes = File(path).readAsBytesSync();
+      loader.addFont(Future.value(ByteData.sublistView(bytes)));
+    }
+    await loader.load();
+  }
 }
 
 Widget _settingsWithTwoAccounts(Preferences prefs) => Scaffold(
