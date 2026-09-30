@@ -35,12 +35,6 @@ void main() {
   late Preferences prefs;
   final specs = SpecRepository(cacheDir: Directory('test/fixtures'));
 
-  setUpAll(() async {
-    SharedPreferences.setMockInitialValues({});
-    prefs = await Preferences.load();
-    await _loadFonts();
-  });
-
   Future<void> render(
     WidgetTester tester,
     Size size,
@@ -86,6 +80,14 @@ void main() {
   }
 
   group('скриншоты', skip: _skip, () {
+    // Внутри группы, чтобы при пропуске не искать шрифты в Flutter SDK:
+    // в CI их по этому пути нет.
+    setUpAll(() async {
+      SharedPreferences.setMockInitialValues({});
+      prefs = await Preferences.load();
+      await _loadFonts();
+    });
+
     testWidgets('главный экран', (tester) async {
       await render(tester, _desktop, demoHome());
       await shoot(tester, 'home');
