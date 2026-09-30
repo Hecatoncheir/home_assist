@@ -21,10 +21,11 @@ typedef CloudCall = ({String host, String path, Map<String, dynamic> data});
 MiCloudClient fakeCloud(
   Object? Function(CloudCall call) respond, {
   List<CloudCall>? calls,
+  Session session = fakeSession,
 }) {
-  final signer = RequestSigner(fakeSession.ssecurity);
+  final signer = RequestSigner(session.ssecurity);
   return MiCloudClient(
-    fakeSession,
+    session,
     client: MockClient((request) async {
       final nonce = request.bodyFields['_nonce']!;
       final data = signer.decrypt(nonce, request.bodyFields['data']!);

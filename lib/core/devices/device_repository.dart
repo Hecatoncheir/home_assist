@@ -4,9 +4,15 @@ import 'device.dart';
 
 /// Итог опроса одного региона: либо устройства, либо ошибка.
 class RegionResult {
-  const RegionResult(this.region, {this.devices = const [], this.error});
+  const RegionResult(
+    this.region, {
+    required this.accountId,
+    this.devices = const [],
+    this.error,
+  });
 
   final String region;
+  final String accountId;
   final List<Device> devices;
   final Object? error;
 }
@@ -17,6 +23,8 @@ class DeviceRepository {
   final MiCloudClient _cloud;
   final Duration timeout;
 
+  String get _accountId => _cloud.session.userId;
+
   /// Опрашивает регионы параллельно. Сбой одного региона не мешает остальным.
   Future<List<RegionResult>> loadAll([List<String> regions = allRegions]) =>
       Future.wait(regions.map(_loadRegionSafely));
@@ -24,9 +32,9 @@ class DeviceRepository {
   Future<RegionResult> _loadRegionSafely(String region) async {
     try {
       final devices = await _loadRegion(region).timeout(timeout);
-      return RegionResult(region, devices: devices);
+      return RegionResult(region, accountId: _accountId, devices: devices);
     } catch (error) {
-      return RegionResult(region, error: error);
+      return RegionResult(region, accountId: _accountId, error: error);
     }
   }
 
@@ -43,7 +51,7 @@ class DeviceRepository {
         Device.fromCloud(
           item as Map<String, dynamic>,
           region: region,
-          accountId: _cloud.session.userId,
+          accountId: _accountId,
         ),
     ];
   }

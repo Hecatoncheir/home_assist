@@ -9,6 +9,7 @@ import '../core/preferences.dart';
 import '../core/spec/spec_repository.dart';
 import '../demo/demo.dart';
 import 'devices_page.dart';
+import 'login_page.dart';
 import 'settings_page.dart';
 import 'widgets/logo.dart';
 
@@ -17,19 +18,26 @@ const _sections = [
   (icon: Icons.tune, label: 'Настройки'),
 ];
 
+/// Связь с одним аккаунтом: откуда брать устройства и куда слать команды.
+typedef _Link = ({DeviceRepository repository, DeviceTransport transport});
+
 /// Каркас после входа: нижняя панель на телефоне, боковая рейка на широком экране.
 class HomeShell extends StatefulWidget {
   const HomeShell({
     super.key,
-    required this.session,
+    required this.sessions,
     required this.prefs,
     required this.specs,
+    required this.onAddAccount,
+    required this.onRemoveAccount,
     required this.onLogout,
   });
 
-  final Session session;
+  final List<Session> sessions;
   final Preferences prefs;
   final SpecRepository specs;
+  final Future<void> Function(Session session) onAddAccount;
+  final ValueChanged<Session> onRemoveAccount;
   final VoidCallback onLogout;
 
   @override
@@ -37,18 +45,43 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  late final _cloud = MiCloudClient(widget.session);
-  late final _repository = _demo
-      ? DemoDeviceRepository()
-      : DeviceRepository(_cloud);
-  late final DeviceTransport _transport = _demo
-      ? DemoTransport(widget.specs)
-      : CloudTransport(_cloud);
+  /// accountId → связь с этим аккаунтом.
+  late final Map<String, _Link> _links = {
+    for (final session in widget.sessions) session.userId: _connect(session),
+  };
   int _index = 0;
 
-  bool get _demo => widget.session.isDemo;
+  _Link _connect(Session session) {
+    if (session.isDemo) {
+      return (
+        repository: DemoDeviceRepository(),
+        transport: DemoTransport(widget.specs),
+      );
+    }
+    final cloud = MiCloudClient(session);
+    return (
+      repository: DeviceRepository(cloud),
+      transport: CloudTransport(cloud),
+    );
+  }
 
   void _select(int index) => setState(() => _index = index);
+
+  /// Экран входа поверх настроек; с него можно вернуться кнопкой «Назад».
+  void _openAddAccount() {
+    final navigator = Navigator.of(context);
+    navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => LoginPage(
+          onCancel: navigator.pop,
+          onLoggedIn: (session) async {
+            navigator.pop();
+            await widget.onAddAccount(session);
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,14 +90,20 @@ class _HomeShellState extends State<HomeShell> {
       index: _index,
       children: [
         DevicesPage(
-          repository: _repository,
+          repositories: [for (final link in _links.values) link.repository],
+          accounts: widget.sessions,
           prefs: widget.prefs,
-          createController: (device) =>
-              DeviceController(device, widget.specs, _transport),
+          createController: (device) => DeviceController(
+            device,
+            widget.specs,
+            _links[device.accountId]!.transport,
+          ),
         ),
         SettingsPage(
-          session: widget.session,
+          sessions: widget.sessions,
           prefs: widget.prefs,
+          onAddAccount: _openAddAccount,
+          onRemoveAccount: widget.onRemoveAccount,
           onLogout: widget.onLogout,
         ),
       ],

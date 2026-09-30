@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
+import '../core/accounts/session.dart';
 import '../core/cloud/regions.dart';
 import '../core/devices/device.dart';
 import '../core/devices/device_controller.dart';
@@ -16,12 +17,15 @@ const _allFilter = 'all';
 class DevicesPage extends StatefulWidget {
   const DevicesPage({
     super.key,
-    required this.repository,
+    required this.repositories,
+    required this.accounts,
     required this.prefs,
     required this.createController,
   });
 
-  final DeviceRepository repository;
+  /// По одному источнику на аккаунт.
+  final List<DeviceRepository> repositories;
+  final List<Session> accounts;
   final Preferences prefs;
   final DeviceController Function(Device device) createController;
 
@@ -44,11 +48,15 @@ class _DevicesPageState extends State<DevicesPage> {
 
   Future<void> _reload() async {
     setState(() => _loading = true);
-    final results = await widget.repository.loadAll(widget.prefs.regions);
+    final regions = widget.prefs.regions;
+    final perAccount = await Future.wait([
+      for (final repository in widget.repositories) repository.loadAll(regions),
+    ]);
+    final results = perAccount.expand((r) => r).toList();
     if (!mounted) return;
     _disposeControllers();
     setState(() {
-      _devices = _sorted(results.expand((r) => r.devices).toList());
+      _devices = _sorted(_unique(results.expand((r) => r.devices)));
       _controllers = {
         for (final device in _devices)
           device: widget.createController(device)..load(),
@@ -57,6 +65,15 @@ class _DevicesPageState extends State<DevicesPage> {
       _loading = false;
     });
   }
+
+  /// Устройство, доступное двум аккаунтам, показывается один раз.
+  List<Device> _unique(Iterable<Device> devices) {
+    final seen = <String>{};
+    return devices.where((device) => seen.add(device.did)).toList();
+  }
+
+  String _accountLabel(String accountId) =>
+      widget.accounts.firstWhere((a) => a.userId == accountId).label;
 
   void _disposeControllers() {
     for (final controller in _controllers.values) {
@@ -82,7 +99,9 @@ class _DevicesPageState extends State<DevicesPage> {
   }
 
   bool _matches(Device device) =>
-      _filter == _allFilter || device.region == _filter;
+      _filter == _allFilter ||
+      device.region == _filter ||
+      device.accountId == _filter;
 
   List<Device> get _shown => _devices.where(_matches).toList();
 
@@ -111,10 +130,17 @@ class _DevicesPageState extends State<DevicesPage> {
             children: [
               _Header(devices: _devices, loading: _loading, onRefresh: _reload),
               for (final result in _failed)
-                _RegionAlert(result, onRetry: _reload),
+                _RegionAlert(
+                  result,
+                  account: widget.accounts.length > 1
+                      ? _accountLabel(result.accountId)
+                      : null,
+                  onRetry: _reload,
+                ),
               const SizedBox(height: 18),
-              _RegionChips(
+              _FilterChips(
                 devices: _devices,
+                accounts: widget.accounts,
                 selected: _filter,
                 onSelected: (filter) => setState(() => _filter = filter),
               ),
@@ -226,9 +252,16 @@ class _Header extends StatelessWidget {
 }
 
 class _RegionAlert extends StatelessWidget {
-  const _RegionAlert(this.result, {required this.onRetry});
+  const _RegionAlert(
+    this.result, {
+    required this.account,
+    required this.onRetry,
+  });
 
   final RegionResult result;
+
+  /// Название аккаунта; `null`, когда аккаунт один и уточнять незачем.
+  final String? account;
   final VoidCallback onRetry;
 
   @override
@@ -247,7 +280,11 @@ class _RegionAlert extends StatelessWidget {
         children: [
           Icon(Icons.cloud_off, color: c.bad),
           const SizedBox(width: 12),
-          Expanded(child: Text('$region недоступен: ${result.error}')),
+          Expanded(
+            child: Text(
+              [region, ?account, 'недоступен: ${result.error}'].join(' · '),
+            ),
+          ),
           TextButton(onPressed: onRetry, child: const Text('Повторить')),
         ],
       ),
@@ -255,14 +292,16 @@ class _RegionAlert extends StatelessWidget {
   }
 }
 
-class _RegionChips extends StatelessWidget {
-  const _RegionChips({
+class _FilterChips extends StatelessWidget {
+  const _FilterChips({
     required this.devices,
+    required this.accounts,
     required this.selected,
     required this.onSelected,
   });
 
   final List<Device> devices;
+  final List<Session> accounts;
   final String selected;
   final ValueChanged<String> onSelected;
 
@@ -270,6 +309,8 @@ class _RegionChips extends StatelessWidget {
   Widget build(BuildContext context) {
     final regions = devices.map((d) => d.region).toSet();
     int count(String region) => devices.where((d) => d.region == region).length;
+    int owned(Session account) =>
+        devices.where((d) => d.accountId == account.userId).length;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -278,6 +319,9 @@ class _RegionChips extends StatelessWidget {
           _chip(_allFilter, 'Все', devices.length),
           for (final region in regions)
             _chip(region, region.toUpperCase(), count(region)),
+          if (accounts.length > 1)
+            for (final account in accounts)
+              _chip(account.userId, account.label, owned(account)),
         ],
       ),
     );

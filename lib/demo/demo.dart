@@ -8,7 +8,12 @@ import '../core/spec/spec_repository.dart';
 
 /// Демо-режим: приложение можно посмотреть без аккаунта Xiaomi.
 /// Устройства выдуманы, команды никуда не отправляются.
-const demoSession = Session(userId: 'demo', ssecurity: '', serviceToken: '');
+const demoSession = Session(
+  userId: 'demo',
+  ssecurity: '',
+  serviceToken: '',
+  label: 'Демо',
+);
 
 Device _device(
   String did,
@@ -51,6 +56,7 @@ class DemoDeviceRepository implements DeviceRepository {
     for (final region in regions)
       RegionResult(
         region,
+        accountId: demoSession.userId,
         devices: _devices.where((d) => d.region == region).toList(),
       ),
   ];

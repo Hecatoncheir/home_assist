@@ -9,14 +9,27 @@ import 'widgets/device_tile.dart';
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
     super.key,
-    required this.session,
+    required this.sessions,
     required this.prefs,
+    required this.onAddAccount,
+    required this.onRemoveAccount,
     required this.onLogout,
   });
 
-  final Session session;
+  final List<Session> sessions;
   final Preferences prefs;
+  final VoidCallback onAddAccount;
+  final ValueChanged<Session> onRemoveAccount;
   final VoidCallback onLogout;
+
+  bool get _demo => sessions.any((session) => session.isDemo);
+
+  String get _logoutLabel {
+    if (_demo) return 'Выйти из демо';
+    return sessions.length > 1
+        ? 'Выйти из всех аккаунтов'
+        : 'Выйти из аккаунта';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,17 +44,28 @@ class SettingsPage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 28, 20, 40),
             children: [
               Text('Настройки', style: context.display(28)),
-              const _SectionTitle('Аккаунт Xiaomi'),
+              const _SectionTitle('Аккаунты Xiaomi'),
               _Card(
                 children: [
-                  ListTile(
-                    leading: const _Avatar(),
-                    title: const Text('Основной'),
-                    subtitle: Text(
-                      'ID ${session.userId}',
-                      style: context.mono(),
+                  for (final session in sessions)
+                    _AccountRow(
+                      session,
+                      onRemove: _demo
+                          ? null
+                          : () => _confirmRemove(context, session),
                     ),
-                  ),
+                  if (!_demo)
+                    ListTile(
+                      leading: Icon(Icons.add, color: c.accent),
+                      title: Text(
+                        'Добавить аккаунт',
+                        style: TextStyle(
+                          color: c.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onTap: onAddAccount,
+                    ),
                 ],
               ),
               const _SectionTitle('Какие регионы опрашивать'),
@@ -75,7 +99,7 @@ class SettingsPage extends StatelessWidget {
                   ListTile(
                     leading: Icon(Icons.logout, color: c.bad),
                     title: Text(
-                      'Выйти из аккаунта',
+                      _logoutLabel,
                       style: TextStyle(
                         color: c.bad,
                         fontWeight: FontWeight.w600,
@@ -92,11 +116,58 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
+  Future<void> _confirmRemove(BuildContext context, Session session) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Убрать аккаунт?'),
+        content: Text(
+          '${session.label}\n\nЕго устройства пропадут из списка. '
+          'Сами устройства и аккаунт Xiaomi не изменятся.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Убрать'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) onRemoveAccount(session);
+  }
+
   Widget _regionRow(String region) => SwitchListTile(
     secondary: RegionBadge(region),
     title: Text(regionNames[region]!),
     value: prefs.regions.contains(region),
     onChanged: (polled) => prefs.setRegionPolled(region, polled),
+  );
+}
+
+class _AccountRow extends StatelessWidget {
+  const _AccountRow(this.session, {required this.onRemove});
+
+  final Session session;
+
+  /// `null` — аккаунт убрать нельзя (демо).
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    leading: const _Avatar(),
+    title: Text(session.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    subtitle: Text('ID ${session.userId}', style: context.mono()),
+    trailing: onRemove == null
+        ? null
+        : IconButton(
+            tooltip: 'Убрать аккаунт',
+            icon: Icon(Icons.close, color: context.colors.bad),
+            onPressed: onRemove,
+          ),
   );
 }
 

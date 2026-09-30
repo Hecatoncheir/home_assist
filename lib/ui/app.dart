@@ -29,7 +29,7 @@ class _HomeAssistAppState extends State<HomeAssistApp> {
   /// `flutter run --dart-define=DEMO=true` открывает демо сразу, без входа.
   static const _startInDemo = bool.fromEnvironment('DEMO');
 
-  Session? _session;
+  List<Session> _sessions = const [];
   bool _loading = true;
 
   @override
@@ -39,21 +39,26 @@ class _HomeAssistAppState extends State<HomeAssistApp> {
   }
 
   Future<void> _restore() async {
-    final session = _startInDemo ? demoSession : await widget.store.load();
+    final sessions = _startInDemo ? [demoSession] : await widget.store.load();
     setState(() {
-      _session = session;
+      _sessions = sessions;
       _loading = false;
     });
   }
 
-  Future<void> _logIn(Session session) async {
-    if (!session.isDemo) await widget.store.save(session);
-    setState(() => _session = session);
-  }
+  /// Повторный вход в тот же аккаунт заменяет его сессию, а не дублирует.
+  Future<void> _addAccount(Session session) => _setSessions([
+    ..._sessions.where((s) => s.userId != session.userId && !s.isDemo),
+    session,
+  ]);
 
-  Future<void> _logOut() async {
-    await widget.store.clear();
-    setState(() => _session = null);
+  Future<void> _removeAccount(Session session) =>
+      _setSessions(_sessions.where((s) => s != session).toList());
+
+  Future<void> _setSessions(List<Session> sessions) async {
+    final real = sessions.where((s) => !s.isDemo).toList();
+    await widget.store.save(real);
+    setState(() => _sessions = sessions);
   }
 
   @override
@@ -78,14 +83,16 @@ class _HomeAssistAppState extends State<HomeAssistApp> {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final session = _session;
-    if (session == null) return LoginPage(onLoggedIn: _logIn);
+    if (_sessions.isEmpty) return LoginPage(onLoggedIn: _addAccount);
     return HomeShell(
-      key: ValueKey(session.serviceToken),
-      session: session,
+      // Смена состава аккаунтов пересоздаёт каркас и перезагружает список.
+      key: ValueKey(_sessions.map((s) => s.serviceToken).join()),
+      sessions: _sessions,
       prefs: widget.prefs,
       specs: widget.specs,
-      onLogout: _logOut,
+      onAddAccount: _addAccount,
+      onRemoveAccount: _removeAccount,
+      onLogout: () => _setSessions(const []),
     );
   }
 }

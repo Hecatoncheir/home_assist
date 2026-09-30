@@ -7,9 +7,13 @@ import 'theme.dart';
 import 'widgets/logo.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.onLoggedIn});
+  const LoginPage({super.key, required this.onLoggedIn, this.onCancel});
 
   final Future<void> Function(Session session) onLoggedIn;
+
+  /// Задан, когда экран открыт для добавления ещё одного аккаунта:
+  /// тогда с него можно вернуться.
+  final VoidCallback? onCancel;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -52,7 +56,10 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final step = await _nextStep();
       _extra.clear();
-      if (step is LoginSuccess) return await widget.onLoggedIn(step.session);
+      if (step is LoginSuccess) {
+        final session = step.session.withLabel(_user.text.trim());
+        return await widget.onLoggedIn(session);
+      }
       _step = step;
     } on LoginException catch (e) {
       _error = e.message;
@@ -76,6 +83,15 @@ class _LoginPageState extends State<LoginPage> {
             shrinkWrap: true,
             padding: const EdgeInsets.all(16),
             children: [
+              if (widget.onCancel != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: widget.onCancel,
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('К настройкам'),
+                  ),
+                ),
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Logo(size: 64),
@@ -124,13 +140,13 @@ class _LoginPageState extends State<LoginPage> {
                 child: Text(_busy ? 'Входим…' : _buttonLabel),
               ),
               const SizedBox(height: 8),
-              if (step == null)
+              if (step != null)
+                TextButton(onPressed: _startOver, child: const Text('Назад'))
+              else if (widget.onCancel == null)
                 TextButton(
                   onPressed: () => widget.onLoggedIn(demoSession),
                   child: const Text('Посмотреть демо без аккаунта'),
-                )
-              else
-                TextButton(onPressed: _startOver, child: const Text('Назад')),
+                ),
             ],
           ),
         ),

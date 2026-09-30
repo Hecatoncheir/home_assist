@@ -130,6 +130,7 @@ class _DeviceDetailsState extends State<_DeviceDetails> {
             'Регион',
             '${regionNames[device.region]} · ${device.region}',
           ),
+          _InfoRow('Аккаунт', device.accountId),
           _InfoRow('IP', device.localIp.isEmpty ? '—' : device.localIp),
         ],
       ),
@@ -188,7 +189,7 @@ class _PowerButton extends StatelessWidget {
     final c = context.colors;
     final on = controller.isOn;
     final lit = on == true;
-    final icon = deviceIcon(controller.device);
+    final device = controller.device;
     return GestureDetector(
       onTap: on == null ? null : controller.toggle,
       child: AnimatedContainer(
@@ -208,8 +209,14 @@ class _PowerButton extends StatelessWidget {
           ],
         ),
         child: _Spinning(
-          active: lit && icon == Icons.wind_power,
-          child: Icon(icon, size: 72, color: lit ? c.glowInk : c.muted),
+          active: lit && isFan(device),
+          child: Center(
+            child: DeviceIcon(
+              device,
+              size: 72,
+              color: lit ? c.glowInk : c.muted,
+            ),
+          ),
         ),
       ),
     );

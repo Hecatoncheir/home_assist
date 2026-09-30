@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../../core/devices/device.dart';
@@ -5,7 +7,6 @@ import '../../core/devices/device_controller.dart';
 import '../theme.dart';
 
 const _iconsByKeyword = [
-  ('fan', Icons.wind_power),
   ('light', Icons.lightbulb_outline),
   ('humidifier', Icons.water_drop_outlined),
   ('airp', Icons.air),
@@ -15,12 +16,61 @@ const _iconsByKeyword = [
   ('kettle', Icons.coffee_maker_outlined),
 ];
 
-/// Значок по названию модели, например `dmaker.fan.p5` → вентилятор.
-IconData deviceIcon(Device device) {
+bool isFan(Device device) => device.model.contains('fan');
+
+/// Значок по названию модели, например `yeelink.light.lamp4` → лампа.
+IconData _iconFor(Device device) {
   for (final (keyword, icon) in _iconsByKeyword) {
     if (device.model.contains(keyword)) return icon;
   }
   return Icons.devices_other;
+}
+
+/// Значок устройства. У вентилятора — лопасти без ножки, чтобы их можно
+/// было вращать.
+class DeviceIcon extends StatelessWidget {
+  const DeviceIcon(this.device, {super.key, required this.size, this.color});
+
+  final Device device;
+  final double size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = this.color ?? context.colors.ink;
+    if (!isFan(device)) return Icon(_iconFor(device), size: size, color: color);
+    return CustomPaint(size: Size.square(size), painter: _RotorPainter(color));
+  }
+}
+
+/// Три лопасти вокруг втулки, симметричные относительно центра.
+class _RotorPainter extends CustomPainter {
+  const _RotorPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final unit = size.width / 24;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.7 * unit;
+    final blade = Rect.fromCenter(
+      center: Offset(0, -5.4 * unit),
+      width: 5.2 * unit,
+      height: 8.2 * unit,
+    );
+    canvas.translate(size.width / 2, size.height / 2);
+    for (var i = 0; i < 3; i++) {
+      canvas.drawOval(blade, paint);
+      canvas.rotate(2 * pi / 3);
+    }
+    canvas.drawCircle(Offset.zero, 1.5 * unit, paint);
+  }
+
+  @override
+  bool shouldRepaint(_RotorPainter old) => old.color != color;
 }
 
 String deviceStatus(DeviceController controller) {
@@ -81,7 +131,7 @@ class DeviceTile extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _IconBox(deviceIcon(device), lit: lit),
+                      _IconBox(device, lit: lit),
                       if (on != null)
                         Switch(
                           value: on,
@@ -105,9 +155,9 @@ class DeviceTile extends StatelessWidget {
 }
 
 class _IconBox extends StatelessWidget {
-  const _IconBox(this.icon, {required this.lit});
+  const _IconBox(this.device, {required this.lit});
 
-  final IconData icon;
+  final Device device;
   final bool lit;
 
   @override
@@ -120,7 +170,9 @@ class _IconBox extends StatelessWidget {
         color: lit ? Colors.white.withValues(alpha: .45) : c.bg,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Icon(icon, size: 22, color: lit ? c.glowInk : c.ink),
+      child: Center(
+        child: DeviceIcon(device, size: 22, color: lit ? c.glowInk : c.ink),
+      ),
     );
   }
 }
