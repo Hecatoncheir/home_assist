@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../core/accounts/session.dart';
 import '../core/cloud/mi_cloud_client.dart';
+import '../core/devices/device_controller.dart';
 import '../core/devices/device_repository.dart';
+import '../core/devices/device_transport.dart';
 import '../core/preferences.dart';
+import '../core/spec/spec_repository.dart';
 import 'devices_page.dart';
 import 'settings_page.dart';
 import 'widgets/logo.dart';
@@ -19,11 +22,13 @@ class HomeShell extends StatefulWidget {
     super.key,
     required this.session,
     required this.prefs,
+    required this.specs,
     required this.onLogout,
   });
 
   final Session session;
   final Preferences prefs;
+  final SpecRepository specs;
   final VoidCallback onLogout;
 
   @override
@@ -31,7 +36,9 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  late final _repository = DeviceRepository(MiCloudClient(widget.session));
+  late final _cloud = MiCloudClient(widget.session);
+  late final _repository = DeviceRepository(_cloud);
+  late final _transport = CloudTransport(_cloud);
   int _index = 0;
 
   void _select(int index) => setState(() => _index = index);
@@ -42,7 +49,12 @@ class _HomeShellState extends State<HomeShell> {
     final pages = IndexedStack(
       index: _index,
       children: [
-        DevicesPage(repository: _repository, prefs: widget.prefs),
+        DevicesPage(
+          repository: _repository,
+          prefs: widget.prefs,
+          createController: (device) =>
+              DeviceController(device, widget.specs, _transport),
+        ),
         SettingsPage(
           session: widget.session,
           prefs: widget.prefs,

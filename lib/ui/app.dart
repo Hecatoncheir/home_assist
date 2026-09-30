@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/accounts/session.dart';
 import '../core/accounts/session_store.dart';
 import '../core/preferences.dart';
+import '../core/spec/spec_repository.dart';
 import 'home_shell.dart';
 import 'login_page.dart';
 import 'theme.dart';
@@ -11,10 +12,12 @@ class HomeAssistApp extends StatefulWidget {
   const HomeAssistApp({
     super.key,
     required this.prefs,
+    required this.specs,
     this.store = const SessionStore(),
   });
 
   final Preferences prefs;
+  final SpecRepository specs;
   final SessionStore store;
 
   @override
@@ -77,6 +80,7 @@ class _HomeAssistAppState extends State<HomeAssistApp> {
       key: ValueKey(session.serviceToken),
       session: session,
       prefs: widget.prefs,
+      specs: widget.specs,
       onLogout: _logOut,
     );
   }

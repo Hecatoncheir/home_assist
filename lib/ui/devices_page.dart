@@ -4,6 +4,7 @@ import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 import '../core/cloud/regions.dart';
 import '../core/devices/device.dart';
+import '../core/devices/device_controller.dart';
 import '../core/devices/device_repository.dart';
 import '../core/preferences.dart';
 import 'device_sheet.dart';
@@ -13,10 +14,16 @@ import 'widgets/device_tile.dart';
 const _allFilter = 'all';
 
 class DevicesPage extends StatefulWidget {
-  const DevicesPage({super.key, required this.repository, required this.prefs});
+  const DevicesPage({
+    super.key,
+    required this.repository,
+    required this.prefs,
+    required this.createController,
+  });
 
   final DeviceRepository repository;
   final Preferences prefs;
+  final DeviceController Function(Device device) createController;
 
   @override
   State<DevicesPage> createState() => _DevicesPageState();
@@ -24,6 +31,7 @@ class DevicesPage extends StatefulWidget {
 
 class _DevicesPageState extends State<DevicesPage> {
   List<Device> _devices = const [];
+  Map<Device, DeviceController> _controllers = const {};
   List<RegionResult> _failed = const [];
   String _filter = _allFilter;
   bool _loading = true;
@@ -38,11 +46,28 @@ class _DevicesPageState extends State<DevicesPage> {
     setState(() => _loading = true);
     final results = await widget.repository.loadAll(widget.prefs.regions);
     if (!mounted) return;
+    _disposeControllers();
     setState(() {
       _devices = _sorted(results.expand((r) => r.devices).toList());
+      _controllers = {
+        for (final device in _devices)
+          device: widget.createController(device)..load(),
+      };
       _failed = results.where((r) => r.error != null).toList();
       _loading = false;
     });
+  }
+
+  void _disposeControllers() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposeControllers();
+    super.dispose();
   }
 
   /// Расставляет устройства в сохранённом порядке, новые — в конец.
@@ -118,13 +143,14 @@ class _DevicesPageState extends State<DevicesPage> {
       ),
       itemCount: shown.length,
       itemBuilder: (context, index) {
-        final device = shown[index];
+        final controller = _controllers[shown[index]]!;
+        final device = controller.device;
         return _Rise(
           key: ValueKey('${device.region}/${device.did}'),
           index: index,
           child: DeviceTile(
-            device: device,
-            onTap: () => showDeviceSheet(context, device),
+            controller: controller,
+            onTap: () => showDeviceSheet(context, controller),
           ),
         );
       },

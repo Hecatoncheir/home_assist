@@ -40,6 +40,8 @@ dependencies:
   google_fonts: ^9.0.0
   shared_preferences: ^2.5.5
   reorderable_grid_view: ^2.2.8
+  path_provider: ^2.1.6
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:

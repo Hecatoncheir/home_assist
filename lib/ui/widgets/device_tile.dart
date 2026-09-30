@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/devices/device.dart';
+import '../../core/devices/device_controller.dart';
 import '../theme.dart';
 
 const _iconsByKeyword = [
@@ -22,40 +23,79 @@ IconData deviceIcon(Device device) {
   return Icons.devices_other;
 }
 
-class DeviceTile extends StatelessWidget {
-  const DeviceTile({super.key, required this.device, required this.onTap});
+String deviceStatus(DeviceController controller) {
+  if (!controller.device.isOnline) return 'Не в сети';
+  return switch (controller.isOn) {
+    true => 'Включено',
+    false => 'Выключено',
+    null => 'В сети',
+  };
+}
 
-  final Device device;
+/// Плитка устройства. Включённое устройство светится тёплым.
+class DeviceTile extends StatelessWidget {
+  const DeviceTile({super.key, required this.controller, required this.onTap});
+
+  final DeviceController controller;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: controller, builder: _build);
+
+  Widget _build(BuildContext context, Widget? _) {
     final c = context.colors;
+    final device = controller.device;
+    final on = controller.isOn;
+    final lit = on == true;
+    final ink = lit ? c.glowInk : c.ink;
+    final shadow = lit ? c.glowB.withValues(alpha: .35) : Colors.black12;
     return Opacity(
       opacity: device.isOnline ? 1 : .62,
-      child: Material(
-        color: c.tile,
-        borderRadius: tileRadius,
-        elevation: 1,
-        shadowColor: Colors.black26,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 350),
         clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _IconBox(deviceIcon(device)),
-                    RegionBadge(device.region),
-                  ],
-                ),
-                _Caption(device),
-              ],
+        decoration: BoxDecoration(
+          color: c.tile,
+          gradient: lit ? c.glow : null,
+          borderRadius: tileRadius,
+          boxShadow: [
+            BoxShadow(
+              color: shadow,
+              blurRadius: lit ? 26 : 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          textStyle: TextStyle(color: ink),
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _IconBox(deviceIcon(device), lit: lit),
+                      if (on != null)
+                        Switch(
+                          value: on,
+                          onChanged: (_) => controller.toggle(),
+                        ),
+                    ],
+                  ),
+                  _Caption(
+                    device: device,
+                    status: deviceStatus(controller),
+                    muted: lit ? ink.withValues(alpha: .75) : c.muted,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -65,60 +105,60 @@ class DeviceTile extends StatelessWidget {
 }
 
 class _IconBox extends StatelessWidget {
-  const _IconBox(this.icon);
+  const _IconBox(this.icon, {required this.lit});
 
   final IconData icon;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 42,
-    height: 42,
-    decoration: BoxDecoration(
-      color: context.colors.bg,
-      borderRadius: BorderRadius.circular(14),
-    ),
-    child: Icon(icon, size: 22),
-  );
-}
-
-class _Caption extends StatelessWidget {
-  const _Caption(this.device);
-
-  final Device device;
+  final bool lit;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          device.name,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w600, height: 1.25),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            OnlineDot(device.isOnline),
-            const SizedBox(width: 6),
-            Text(
-              device.isOnline ? 'В сети' : 'Не в сети',
-              style: TextStyle(fontSize: 13, color: c.muted),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          device.model,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: context.mono(size: 11),
-        ),
-      ],
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: lit ? Colors.white.withValues(alpha: .45) : c.bg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(icon, size: 22, color: lit ? c.glowInk : c.ink),
     );
   }
+}
+
+class _Caption extends StatelessWidget {
+  const _Caption({
+    required this.device,
+    required this.status,
+    required this.muted,
+  });
+
+  final Device device;
+  final String status;
+  final Color muted;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        device.name,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w600, height: 1.25),
+      ),
+      const SizedBox(height: 6),
+      Row(
+        children: [
+          OnlineDot(device.isOnline),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(status, style: TextStyle(fontSize: 13, color: muted)),
+          ),
+          RegionBadge(device.region, color: muted),
+        ],
+      ),
+    ],
+  );
 }
 
 class OnlineDot extends StatelessWidget {
@@ -138,17 +178,24 @@ class OnlineDot extends StatelessWidget {
 }
 
 class RegionBadge extends StatelessWidget {
-  const RegionBadge(this.region, {super.key});
+  const RegionBadge(this.region, {super.key, this.color});
 
   final String region;
+  final Color? color;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-    decoration: BoxDecoration(
-      border: Border.all(color: context.colors.muted),
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Text(region.toUpperCase(), style: context.mono(size: 10)),
-  );
+  Widget build(BuildContext context) {
+    final color = this.color ?? context.colors.muted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        border: Border.all(color: color),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        region.toUpperCase(),
+        style: context.mono(size: 10, color: color),
+      ),
+    );
+  }
 }
