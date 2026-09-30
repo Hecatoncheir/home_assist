@@ -1,0 +1,556 @@
+<title>Home Assist</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Идея: дом вечером. Устройства — окна: включённое светится тёплым, выключенное остаётся холодным.
+   Телефон — сетка в две колонки и нижняя панель; широкий экран — боковая рейка и панель устройства справа. */
+:root {
+  --bg: #E7ECF1; --surface: #F6F8FA; --tile: #FFFFFF; --ink: #15202B; --muted: #5C6978; --line: #D3DBE3;
+  --glow-a: #FFD27A; --glow-b: #FFAA4C; --glow-ink: #3F2600; --glow-shadow: rgba(255, 160, 60, .35);
+  --accent: #1B6C88; --on-accent: #FFFFFF; --ok: #24925F; --bad: #C2412C; --bad-soft: #FBE6E1;
+  --shadow: 0 1px 2px rgba(21, 32, 43, .06), 0 6px 18px rgba(21, 32, 43, .06);
+  --display: "Unbounded", "Trebuchet MS", sans-serif;
+  --body: "Onest", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", Consolas, monospace;
+  --r: 22px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0D131A; --surface: #141C26; --tile: #1A2430; --ink: #E7EDF3; --muted: #8B99AA; --line: #293543;
+  --glow-a: #FFCB70; --glow-b: #FF9D3F; --glow-ink: #2E1B00; --glow-shadow: rgba(255, 160, 60, .28);
+  --accent: #6FC6DF; --on-accent: #06222C; --ok: #4CC38A; --bad: #FF8A73; --bad-soft: #3A1F1B;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3); color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0D131A; --surface: #141C26; --tile: #1A2430; --ink: #E7EDF3; --muted: #8B99AA; --line: #293543;
+  --glow-a: #FFCB70; --glow-b: #FF9D3F; --glow-ink: #2E1B00; --glow-shadow: rgba(255, 160, 60, .28);
+  --accent: #6FC6DF; --on-accent: #06222C; --ok: #4CC38A; --bad: #FF8A73; --bad-soft: #3A1F1B;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3); color-scheme: dark }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 400 15px/1.45 var(--body); -webkit-tap-highlight-color: transparent; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; padding: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.mono { font-family: var(--mono); font-size: 12px; }
+
+/* Каркас */
+.rail { position: fixed; z-index: 5; background: var(--surface); display: flex; }
+.rail button { display: grid; justify-items: center; gap: 2px; padding: 8px 12px; border-radius: 14px; color: var(--muted); font-size: 11px; font-weight: 500; transition: color .2s, background .2s; }
+.rail button[aria-current="page"] { color: var(--ink); background: var(--bg); }
+.logo { width: 36px; height: 36px; }
+main { max-width: 1120px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 40px); padding-block: 24px 110px; display: grid; gap: 22px; }
+@media (max-width: 719px) {
+  .rail { inset: auto 0 0 0; justify-content: space-around; border-top: 1px solid var(--line); padding: 6px 16px calc(6px + env(safe-area-inset-bottom, 0px)); }
+  .rail .logo { display: none; }
+  .rail button { min-width: 96px; }
+}
+@media (min-width: 720px) {
+  .rail { inset: 0 auto 0 0; width: 84px; flex-direction: column; align-items: center; gap: 8px; padding: 20px 0; border-right: 1px solid var(--line); }
+  .rail .logo { margin-bottom: 18px; }
+  .shell { padding-left: 84px; }
+  main { padding-block: 36px 48px; }
+}
+
+/* Шапка */
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.head > div { min-width: 0; }
+h1 { font: 700 clamp(22px, 4.2vw, 34px)/1.15 var(--display); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+h2 { font: 500 13px/1 var(--display); margin: 0; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.sub { color: var(--muted); margin-top: 8px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.sub b { color: var(--ink); font-weight: 600; }
+.pill { font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 3px 9px; border-radius: 99px; border: 1px dashed var(--muted); color: var(--muted); }
+.icon-btn { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--tile); box-shadow: var(--shadow); transition: transform .15s; }
+.icon-btn:active { transform: scale(.92); }
+.spin svg { animation: spin .9s linear infinite; }
+
+/* Фильтры */
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-block: 2px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; padding: 8px 14px; border-radius: 99px; background: var(--tile); color: var(--muted); font-weight: 500; font-size: 14px; border: 1px solid transparent; transition: all .2s; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.chip .n { opacity: .6; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.sep { flex: none; width: 1px; background: var(--line); margin: 6px 4px; }
+
+/* Сообщение о недоступном регионе */
+.alert { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 12px 16px; border-radius: 16px; background: var(--bad-soft); color: var(--ink); }
+.alert svg { color: var(--bad); }
+.alert p { margin: 0; flex: 1; min-width: 180px; }
+.link { color: var(--accent); font-weight: 600; padding: 6px 4px; }
+
+/* Плитки устройств */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; }
+.tile { position: relative; min-height: 152px; padding: 14px; border-radius: var(--r); background: var(--tile); box-shadow: var(--shadow); display: flex; flex-direction: column; justify-content: space-between; gap: 14px; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: pan-y; transition: background .35s, color .35s, box-shadow .35s, transform .18s, opacity .2s; }
+.tile:active { transform: scale(.975); }
+.tile.on { background: linear-gradient(155deg, var(--glow-a), var(--glow-b)); color: var(--glow-ink); box-shadow: 0 8px 26px var(--glow-shadow); }
+.tile.off-line { opacity: .62; }
+.tile.dragging { z-index: 20; pointer-events: none; transition: none; box-shadow: 0 22px 44px rgba(0, 0, 0, .28); cursor: grabbing; }
+.tile .top { display: flex; justify-content: space-between; align-items: flex-start; }
+.tile .ico { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: var(--bg); transition: background .35s; }
+.tile.on .ico { background: rgba(255, 255, 255, .45); }
+.tile.on .ico .rotor { animation: spin 1.4s linear infinite; transform-origin: 12px 12px; }
+.tile .name { font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.tile .state { font-size: 13px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.tile.on .state, .tile.on .meta { color: inherit; opacity: .75; }
+.tile .big { font: 500 22px/1 var(--display); font-variant-numeric: tabular-nums; }
+.tile .meta { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 8px; }
+.badge { font-family: var(--mono); font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 6px; border: 1px solid currentColor; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); display: inline-block; margin-right: 5px; }
+.dot.off { background: var(--muted); }
+.grid.enter .tile { animation: rise .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 35ms); }
+.grid.loading .tile { animation: pulse 1s ease-in-out infinite; }
+.hint { color: var(--muted); font-size: 13px; }
+
+/* Переключатель */
+.switch { width: 46px; height: 28px; border-radius: 99px; background: var(--line); position: relative; transition: background .25s; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: transform .28s cubic-bezier(.3, 1.5, .5, 1); }
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { transform: translateX(18px); }
+.tile.on .switch { background: rgba(63, 38, 0, .55); }
+.switch:disabled { opacity: .4; cursor: default; }
+
+/* Панель устройства */
+.veil { position: fixed; inset: 0; z-index: 30; background: rgba(8, 12, 18, .5); opacity: 0; pointer-events: none; transition: opacity .3s; }
+.sheet { position: fixed; z-index: 31; background: var(--surface); overflow-y: auto; overscroll-behavior: contain; padding: 20px clamp(16px, 4vw, 28px) calc(28px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 20px; align-content: start; transition: transform .38s cubic-bezier(.2, .85, .25, 1); }
+@media (max-width: 719px) { .sheet { inset: auto 0 0 0; max-height: 90%; border-radius: 28px 28px 0 0; transform: translateY(105%); } }
+@media (min-width: 720px) { .sheet { inset: 0 0 0 auto; width: 420px; border-left: 1px solid var(--line); transform: translateX(105%); } }
+.open .veil { opacity: 1; pointer-events: auto; }
+.open .sheet { transform: none; }
+.sheet header { display: flex; gap: 12px; align-items: center; }
+.sheet header div { flex: 1; min-width: 0; }
+.sheet h3 { font: 500 17px/1.25 var(--display); margin: 0; }
+.stage { display: grid; place-items: center; padding: 8px 0; }
+.power { width: 148px; height: 148px; border-radius: 50%; display: grid; place-items: center; background: var(--tile); box-shadow: var(--shadow); color: var(--muted); transition: background .4s, color .4s, box-shadow .4s, transform .15s; }
+.power:active { transform: scale(.95); }
+.power.on { background: radial-gradient(circle at 35% 30%, var(--glow-a), var(--glow-b)); color: var(--glow-ink); box-shadow: 0 0 0 10px var(--glow-shadow), 0 12px 36px var(--glow-shadow); }
+.power svg { width: 84px; height: 84px; stroke-width: 1.1; }
+.power .rotor { transform-origin: 12px 12px; animation: spin var(--spin, 1.4s) linear infinite; animation-play-state: paused; }
+.power.on .rotor { animation-play-state: running; }
+.stage p { margin: 14px 0 0; color: var(--muted); font-size: 13px; }
+.ctl { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+.ctl.row { grid-template-columns: 1fr auto; align-items: center; }
+.ctl label, .ctl .lab { font-weight: 500; display: flex; justify-content: space-between; }
+.ctl output { font-family: var(--mono); color: var(--muted); }
+.ctl input[type=range] { width: 100%; accent-color: var(--accent); height: 28px; }
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg button { padding: 8px 14px; border-radius: 12px; background: var(--tile); border: 1px solid var(--line); font-size: 14px; transition: all .2s; }
+.seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.level { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.level i { display: block; height: 100%; border-radius: 99px; background: var(--accent); transition: width .5s; }
+.dim { opacity: .45; pointer-events: none; }
+dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+dt { color: var(--muted); } dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+
+/* Настройки */
+.list { background: var(--tile); border-radius: var(--r); box-shadow: var(--shadow); }
+.list > * { display: flex; align-items: center; gap: 12px; padding: 14px 16px; width: 100%; text-align: left; }
+.list > * + * { border-top: 1px solid var(--line); }
+.list .grow { flex: 1; min-width: 0; }
+.list small { display: block; color: var(--muted); font-size: 13px; }
+.ava { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(155deg, var(--glow-a), var(--glow-b)); color: var(--glow-ink); font: 700 13px var(--display); flex: none; }
+.settings { max-width: 640px; }
+
+/* Вход */
+.login { min-height: calc(100dvh - 40px); display: grid; place-items: center; padding: 24px 16px; }
+.login form { width: 100%; max-width: 380px; display: grid; gap: 14px; }
+.login .logo { width: 64px; height: 64px; margin-bottom: 6px; }
+.login .lit { animation: flicker 3.2s ease-in-out infinite; }
+.field { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--muted); }
+.field input { padding: 13px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--tile); color: var(--ink); font-size: 16px; width: 100%; transition: border-color .2s; }
+.field input:focus { outline: none; border-color: var(--accent); }
+.code input { font-family: var(--mono); letter-spacing: .5em; text-align: center; font-size: 22px; }
+.captcha { border-radius: 14px; background: var(--tile); border: 1px solid var(--line); height: 64px; width: 100%; }
+.btn { padding: 14px; border-radius: 14px; background: var(--ink); color: var(--bg); font-weight: 600; transition: transform .15s, opacity .2s; }
+.btn:active { transform: scale(.98); }
+.steps { display: flex; gap: 6px; }
+.steps i { height: 4px; flex: 1; border-radius: 9px; background: var(--line); transition: background .3s; }
+.steps i.done { background: var(--glow-b); }
+.fade { animation: rise .35s both; }
+
+.toast { position: fixed; z-index: 50; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 99px; font-weight: 500; opacity: 0; pointer-events: none; transition: all .3s; max-width: calc(100% - 32px); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+@keyframes pulse { 50% { opacity: .45; } }
+@keyframes flicker { 0%, 100% { opacity: 1; } 48% { opacity: 1; } 52% { opacity: .55; } 56% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div id="app"></div>
+<div id="overlay"><div class="veil" data-act="close"></div><aside class="sheet" id="sheet" aria-label="Устройство"></aside></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const ICON = {
+  fan: '<g class="rotor"><ellipse cx="12" cy="6.6" rx="2.6" ry="4.1"/><ellipse cx="12" cy="6.6" rx="2.6" ry="4.1" transform="rotate(120 12 12)"/><ellipse cx="12" cy="6.6" rx="2.6" ry="4.1" transform="rotate(240 12 12)"/></g><circle cx="12" cy="12" r="1.5"/>',
+  lamp: '<path d="M9 17h6M10 20.5h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.600 1-2.100A6 6 0 0 0 12 3z"/>',
+  humidifier: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.500 6-11 6-11z"/><path d="M9.500 14.500a2.500 2.500 0 0 0 2.500 2.500"/>',
+  purifier: '<path d="M3 9h10a3 3 0 1 0-3-3M3 14h15a3 3 0 1 1-3 3M3 19h6"/>',
+  vacuum: '<circle cx="12" cy="12" r="8.500"/><circle cx="12" cy="12" r="2.500"/><path d="M12 3.500v2.500"/>',
+  plug: '<path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"/>',
+  sensor: '<path d="M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0z"/><path d="M12 11v6"/>',
+  kettle: '<path d="M6 9h10l1.500 10h-13zM16.500 11.500H19a2 2 0 0 1 0 4.500h-1.800M9 5.500h4"/>',
+  home: '<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/>',
+  tune: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  refresh: '<path d="M20 12a8 8 0 1 1-2.300-5.700M20 4v4h-4"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  cloud: '<path d="M7 18a4 4 0 0 1-.500-8A5.500 5.500 0 0 1 17 9.500a4.200 4.200 0 0 1 0 8.500zM4 4l16 16"/>',
+  out: '<path d="M14 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 8l-4 4 4 4M6 12h9"/>',
+};
+const icon = (name) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[name]}</svg>`;
+const LOGO = (lit = '') => `<svg class="logo" viewBox="0 0 36 36" aria-hidden="true"><rect width="36" height="36" rx="10" fill="var(--ink)"/><rect x="8" y="8" width="9" height="9" rx="2.500" fill="var(--glow-b)" class="${lit}"/><rect x="19" y="8" width="9" height="9" rx="2.500" fill="var(--bg)" opacity=".28"/><rect x="8" y="19" width="9" height="9" rx="2.500" fill="var(--bg)" opacity=".28"/><rect x="19" y="19" width="9" height="9" rx="2.500" fill="var(--glow-a)"/></svg>`;
+
+const REGIONS = { cn: 'Китай', ru: 'Россия', de: 'Европа', us: 'США', sg: 'Сингапур', i2: 'Индия', tw: 'Тайвань' };
+const SPIN = ['0s', '2.4s', '1.500s', '.9s', '.5s'];
+
+// Элементы управления строятся из описания устройства — как позже из спецификации MIoT.
+const CONTROLS = {
+  fan: [
+    { k: 'speed', t: 'range', l: 'Скорость', min: 1, max: 4 },
+    { k: 'mode', t: 'choice', l: 'Режим', o: ['Прямой', 'Природный', 'Сон'] },
+    { k: 'swing', t: 'toggle', l: 'Поворот' },
+    { k: 'cool', t: 'toggle', l: 'Охлаждение с увлажнением' },
+    { k: 'lock', t: 'toggle', l: 'Блокировка кнопок' },
+    { k: 'timer', t: 'choice', l: 'Таймер', o: ['Нет', '1 ч', '2 ч', '4 ч'] },
+    { k: 'water', t: 'level', l: 'Уровень воды' },
+  ],
+  lamp: [{ k: 'bright', t: 'range', l: 'Яркость', min: 1, max: 100, u: ' %' }, { k: 'tone', t: 'choice', l: 'Свет', o: ['Тёплый', 'Дневной', 'Ночник'] }],
+  humidifier: [{ k: 'target', t: 'range', l: 'Целевая влажность', min: 30, max: 70, u: ' %' }, { k: 'water', t: 'level', l: 'Уровень воды' }],
+  purifier: [{ k: 'mode', t: 'choice', l: 'Режим', o: ['Авто', 'Тихий', 'Турбо'] }, { k: 'lock', t: 'toggle', l: 'Блокировка кнопок' }],
+  kettle: [{ k: 'temp', t: 'range', l: 'Поддерживать', min: 40, max: 95, u: '°' }],
+  plug: [], vacuum: [], sensor: [],
+};
+const STATE_TEXT = {
+  fan: (v) => `Скорость ${v.speed} · ${v.mode.toLowerCase()}`,
+  lamp: (v) => `Яркость ${v.bright} %`,
+  humidifier: (v) => `Цель ${v.target} %`,
+  purifier: (v) => `PM2.5 — ${v.pm} · ${v.mode.toLowerCase()}`,
+  kettle: (v) => `Держит ${v.temp}°`,
+  plug: (v) => `${v.watt} Вт`,
+  vacuum: () => 'Идёт уборка',
+};
+
+const store = {
+  get(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } },
+  set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} },
+};
+
+let devices = [
+  { id: 'd1', type: 'fan', name: 'Вентилятор ZFSLFS01DM', model: 'dmaker.fan.xxx', region: 'ru', room: 'Гостиная', online: true, on: true, ip: '192.168.1.37', local: true, v: { speed: 2, mode: 'Природный', swing: true, cool: false, lock: false, timer: 'Нет', water: 64 } },
+  { id: 'd2', type: 'lamp', name: 'Лампа у кровати', model: 'yeelink.light.bslamp2', region: 'ru', room: 'Спальня', online: true, on: true, ip: '192.168.1.41', local: true, v: { bright: 35, tone: 'Тёплый' } },
+  { id: 'd3', type: 'humidifier', name: 'Увлажнитель', model: 'deerma.humidifier.jsq', region: 'cn', room: 'Спальня', online: true, on: false, ip: '192.168.1.52', local: false, v: { target: 50, water: 22 } },
+  { id: 'd4', type: 'sensor', name: 'Климат в спальне', model: 'miaomiaoce.sensor_ht.t2', region: 'cn', room: 'Спальня', online: true, on: false, ip: '', local: false, v: { temp: 23.4, hum: 41 } },
+  { id: 'd5', type: 'purifier', name: 'Очиститель воздуха', model: 'zhimi.airp.mb4a', region: 'cn', room: 'Гостиная', online: true, on: true, ip: '192.168.1.60', local: false, v: { mode: 'Авто', pm: 8, lock: false } },
+  { id: 'd6', type: 'kettle', name: 'Чайник', model: 'yunmi.kettle.v2', region: 'cn', room: 'Кухня', online: true, on: false, ip: '', local: false, v: { temp: 80 } },
+  { id: 'd7', type: 'plug', name: 'Розетка у стола', model: 'chuangmi.plug.m3', region: 'ru', room: 'Гостиная', online: true, on: false, ip: '192.168.1.44', local: true, v: { watt: 46 } },
+  { id: 'd8', type: 'vacuum', name: 'Робот-пылесос', model: 'roborock.vacuum.s5', region: 'ru', room: 'Гостиная', online: false, on: false, ip: '', local: false, v: {} },
+];
+const savedOrder = store.get('order', []);
+devices.sort((a, b) => (savedOrder.indexOf(a.id) + 1 || 99) - (savedOrder.indexOf(b.id) + 1 || 99));
+
+const state = {
+  view: 'home', filter: 'all', openId: null, loading: false, enter: true,
+  failed: ['sg'], polled: { cn: true, ru: true, de: true, us: true, sg: true, i2: true, tw: true },
+  accounts: [{ name: 'Основной', id: '6201••••48', regions: 'RU, CN' }],
+  loginStep: 0, theme: store.get('theme', 'system'),
+};
+
+const $ = (selector) => document.querySelector(selector);
+const byId = (id) => devices.find((d) => d.id === id);
+const isLit = (d) => d.online && d.on;
+const matches = (d) => state.filter === 'all' || d.room === state.filter || d.region === state.filter;
+
+function stateText(d) {
+  if (!d.online) return 'Не в сети';
+  if (d.type === 'sensor') return `Влажность ${d.v.hum} %`;
+  return d.on ? STATE_TEXT[d.type](d.v) : 'Выключено';
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 5) return 'Доброй ночи';
+  if (h < 12) return 'Доброе утро';
+  return h < 18 ? 'Добрый день' : 'Добрый вечер';
+}
+
+/* ---------- Разметка ---------- */
+function tile(d, i) {
+  const classes = ['tile', isLit(d) && 'on', !d.online && 'off-line'].filter(Boolean).join(' ');
+  const right = d.type === 'sensor'
+    ? `<span class="big">${d.v.temp}°</span>`
+    : `<button class="switch" role="switch" aria-checked="${d.on}" aria-label="Питание: ${d.name}" data-act="toggle" data-id="${d.id}" ${d.online ? '' : 'disabled'}></button>`;
+  return `<div class="${classes}" style="--i:${i}" data-id="${d.id}" data-act="open" tabindex="0" role="button" aria-label="${d.name}, ${stateText(d)}">
+    <div class="top"><span class="ico">${icon(d.type)}</span>${right}</div>
+    <div><div class="name">${d.name}</div><div class="state">${stateText(d)}</div>
+      <div class="meta"><span><i class="dot ${d.online ? '' : 'off'}"></i>${d.room}</span><span class="badge">${d.region.toUpperCase()}</span></div></div>
+  </div>`;
+}
+
+function chips() {
+  const chip = (key, label, n) => `<button class="chip" data-act="filter" data-v="${key}" aria-pressed="${state.filter === key}">${label}<span class="n">${n}</span></button>`;
+  const count = (field) => devices.reduce((acc, d) => ({ ...acc, [d[field]]: (acc[d[field]] || 0) + 1 }), {});
+  const rooms = Object.entries(count('room')).map(([k, n]) => chip(k, k, n));
+  const regions = Object.entries(count('region')).map(([k, n]) => chip(k, k.toUpperCase(), n));
+  return `<div class="chips" role="toolbar" aria-label="Фильтр">${chip('all', 'Все', devices.length)}${rooms.join('')}<i class="sep"></i>${regions.join('')}</div>`;
+}
+
+function homeView() {
+  const lit = devices.filter(isLit).length;
+  const regionCount = new Set(devices.map((d) => d.region)).size;
+  const alerts = state.failed.filter((r) => state.polled[r]).map((r) => `<div class="alert">${icon('cloud')}<p><b>${REGIONS[r]} (${r.toUpperCase()})</b> не ответил за 15 с. Остальные регионы загружены.</p><button class="link" data-act="retry" data-v="${r}">Повторить</button></div>`);
+  const shown = devices.filter(matches);
+  return `<div class="head">
+      <div><h1>${greeting()}</h1><div class="sub"><span>Включено <b>${lit}</b> из ${devices.length} · регионов: <b>${regionCount}</b></span><span class="pill">ПРИМЕР ДАННЫХ</span></div></div>
+      <button class="icon-btn ${state.loading ? 'spin' : ''}" data-act="refresh" aria-label="Обновить список">${icon('refresh')}</button>
+    </div>
+    ${alerts.join('')}${chips()}
+    <div class="grid ${state.enter ? 'enter' : ''} ${state.loading ? 'loading' : ''}" id="grid">${shown.map(tile).join('')}</div>
+    <p class="hint">Перетащите плитку, чтобы поменять порядок. На телефоне — удерживайте, с клавиатуры — Alt + стрелки.</p>`;
+}
+
+function settingsView() {
+  const accounts = state.accounts.map((a) => `<div><span class="ava">${a.name[0]}</span><span class="grow"><b>${a.name}</b><small class="mono">ID ${a.id} · ${a.regions}</small></span></div>`);
+  const regions = Object.entries(REGIONS).map(([k, name]) => {
+    const n = devices.filter((d) => d.region === k).length;
+    return `<div><span class="badge">${k.toUpperCase()}</span><span class="grow">${name}<small>${n ? `Устройств: ${n}` : 'Устройств нет'}</small></span>
+      <button class="switch" role="switch" aria-checked="${state.polled[k]}" aria-label="Опрашивать регион ${name}" data-act="poll" data-v="${k}"></button></div>`;
+  });
+  const themes = [['system', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']].map(([k, l]) => `<button data-act="theme" data-v="${k}" aria-pressed="${state.theme === k}">${l}</button>`);
+  return `<div class="settings" style="display:grid;gap:22px">
+    <div class="head"><h1>Настройки</h1></div>
+    <h2>Аккаунты Xiaomi</h2>
+    <div class="list">${accounts.join('')}<button data-act="add-account">${icon('plus')}<span class="grow" style="color:var(--accent);font-weight:600">Добавить аккаунт</span></button></div>
+    <h2>Какие регионы опрашивать</h2>
+    <div class="list">${regions.join('')}</div>
+    <h2>Оформление</h2>
+    <div class="seg">${themes.join('')}</div>
+    <div class="list"><button data-act="logout" style="color:var(--bad)">${icon('out')}<span class="grow" style="font-weight:600">Выйти из аккаунта</span></button></div>
+  </div>`;
+}
+
+function shell(content) {
+  const nav = (view, label, ic) => `<button data-act="nav" data-v="${view}" ${state.view === view ? 'aria-current="page"' : ''}>${icon(ic)}${label}</button>`;
+  return `<div class="shell"><nav class="rail" aria-label="Разделы">${LOGO()}${nav('home', 'Дом', 'home')}${nav('settings', 'Настройки', 'tune')}</nav><main>${content}</main></div>`;
+}
+
+function loginView() {
+  const steps = [
+    `<label class="field">Почта, телефон или ID<input id="login-user" autocomplete="off" placeholder="name@example.com"></label>
+     <label class="field">Пароль<input id="login-pass" type="password" autocomplete="off" placeholder="••••••••"></label>`,
+    `<svg class="captcha" viewBox="0 0 200 64" role="img" aria-label="Картинка с текстом"><path d="M0 40 C40 10 70 60 110 30 S170 50 200 20" fill="none" stroke="var(--line)" stroke-width="2"/><text x="28" y="44" font-family="JetBrains Mono, monospace" font-size="30" letter-spacing="12" fill="var(--ink)" transform="skewX(-12)">x7Kp</text><path d="M10 22 L190 46" stroke="var(--muted)" stroke-width="1"/></svg>
+     <label class="field">Текст с картинки<input id="login-captcha" autocomplete="off"></label>`,
+    `<p style="margin:0;color:var(--muted)">Xiaomi отправил код на почту n•••@example.com.</p>
+     <label class="field code">Код из письма<input id="login-code" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="······"></label>`,
+  ];
+  const bars = steps.map((_, i) => `<i class="${i <= state.loginStep ? 'done' : ''}"></i>`).join('');
+  return `<div class="login"><form id="login" novalidate>
+    ${LOGO('lit')}
+    <h1>Весь дом в&nbsp;одном списке</h1>
+    <p style="margin:0;color:var(--muted)">Устройства Xiaomi из всех регионов и аккаунтов. Пароль не сохраняется.</p>
+    <div class="steps" aria-hidden="true">${bars}</div>
+    <div class="fade" style="display:grid;gap:14px">${steps[state.loginStep]}</div>
+    <button class="btn">${state.loginStep ? 'Продолжить' : 'Войти'}</button>
+    <p class="hint" style="margin:0">Прототип: данные никуда не отправляются, подойдут любые значения. Показаны все шаги — пароль, капча, код.</p>
+  </form></div>`;
+}
+
+function control(d, c) {
+  const value = d.v[c.k];
+  if (c.t === 'toggle') return `<div class="ctl row"><span class="lab">${c.l}</span><button class="switch" role="switch" aria-checked="${value}" aria-label="${c.l}" data-act="set" data-k="${c.k}" data-v="${!value}"></button></div>`;
+  if (c.t === 'level') return `<div class="ctl"><span class="lab">${c.l}<output>${value} %</output></span><div class="level"><i style="width:${value}%"></i></div></div>`;
+  if (c.t === 'choice') return `<div class="ctl"><span class="lab">${c.l}</span><div class="seg">${c.o.map((o) => `<button data-act="set" data-k="${c.k}" data-v="${o}" aria-pressed="${o === value}">${o}</button>`).join('')}</div></div>`;
+  return `<div class="ctl"><label for="ctl-${c.k}">${c.l}<output id="out-${c.k}">${value}${c.u || ''}</output></label><input type="range" id="ctl-${c.k}" data-k="${c.k}" data-u="${c.u || ''}" min="${c.min}" max="${c.max}" value="${value}"></div>`;
+}
+
+function sheetView(d) {
+  const stage = d.type === 'sensor'
+    ? `<div class="stage"><div class="big" style="font:700 56px var(--display)">${d.v.temp}°</div><p>Влажность ${d.v.hum} %</p></div>`
+    : `<div class="stage"><button class="power ${isLit(d) ? 'on' : ''}" style="--spin:${SPIN[d.v.speed] || '1.4s'}" data-act="toggle" data-id="${d.id}" aria-pressed="${d.on}" aria-label="Питание" ${d.online ? '' : 'disabled'}>${icon(d.type)}</button><p>${stateText(d)}</p></div>`;
+  const controls = CONTROLS[d.type].map((c) => control(d, c)).join('');
+  return `<header><span class="ico" style="display:grid;place-items:center;width:42px;height:42px;border-radius:14px;background:var(--tile)">${icon(d.type)}</span>
+      <div><h3>${d.name}</h3><small style="color:var(--muted)">${d.room} · <i class="dot ${d.online ? '' : 'off'}"></i>${d.online ? 'в сети' : 'не в сети'}</small></div>
+      <button class="icon-btn" data-act="close" aria-label="Закрыть">${icon('close')}</button></header>
+    ${stage}
+    <div class="${isLit(d) || d.type === 'sensor' ? '' : 'dim'}" style="display:grid;gap:16px">${controls}</div>
+    <dl class="mono"><dt>Модель</dt><dd>${d.model}</dd><dt>DID</dt><dd>${4811 + d.id.charCodeAt(1)}20${d.id.slice(1)}</dd><dt>Регион</dt><dd>${REGIONS[d.region]} · ${d.region}</dd><dt>IP</dt><dd>${d.ip || '—'}</dd><dt>Связь</dt><dd>${d.local ? 'напрямую по Wi‑Fi' : 'через облако'}</dd></dl>`;
+}
+
+/* ---------- Отрисовка ---------- */
+function render() {
+  const app = $('#app');
+  if (state.view === 'login') app.innerHTML = loginView();
+  else app.innerHTML = shell(state.view === 'home' ? homeView() : settingsView());
+  state.enter = false;
+  renderSheet();
+}
+
+function renderSheet() {
+  const d = byId(state.openId);
+  $('#overlay').classList.toggle('open', !!d);
+  if (d) $('#sheet').innerHTML = sheetView(d);
+}
+
+function applyTheme() {
+  if (state.theme === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.dataset.theme = state.theme;
+}
+
+let toastTimer;
+function toast(text) {
+  const el = $('#toast');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ---------- Действия ---------- */
+const actions = {
+  open: (el) => { state.openId = el.dataset.id; renderSheet(); },
+  close: () => { state.openId = null; renderSheet(); },
+  toggle: (el) => { const d = byId(el.dataset.id); d.on = !d.on; navigator.vibrate?.(8); render(); },
+  set: (el) => { const raw = el.dataset.v; byId(state.openId).v[el.dataset.k] = raw === 'true' ? true : raw === 'false' ? false : raw; render(); },
+  filter: (el) => { state.filter = el.dataset.v; state.enter = true; render(); },
+  nav: (el) => { state.view = el.dataset.v; state.enter = true; render(); },
+  theme: (el) => { state.theme = el.dataset.v; store.set('theme', state.theme); applyTheme(); render(); },
+  poll: (el) => { state.polled[el.dataset.v] = !state.polled[el.dataset.v]; render(); },
+  retry: (el) => { state.failed = state.failed.filter((r) => r !== el.dataset.v); render(); toast(`${REGIONS[el.dataset.v]}: на связи, устройств нет`); },
+  refresh: () => { state.loading = true; render(); setTimeout(() => { state.loading = false; render(); toast('Список обновлён'); }, 900); },
+  logout: () => { state.view = 'login'; state.loginStep = 0; state.adding = false; render(); },
+  'add-account': () => { state.view = 'login'; state.loginStep = 0; state.adding = true; render(); },
+};
+
+let suppressClick = false;
+document.addEventListener('click', (e) => {
+  if (suppressClick) return;
+  const el = e.target.closest('[data-act]');
+  if (el) actions[el.dataset.act](el);
+});
+
+document.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (state.loginStep < 2) { state.loginStep++; return render(); }
+  if (state.adding) state.accounts.push({ name: 'Второй', id: '1877••••03', regions: 'CN' });
+  state.view = state.adding ? 'settings' : 'home';
+  state.enter = true;
+  render();
+  toast(state.adding ? 'Аккаунт добавлен' : 'Вы вошли');
+});
+
+document.addEventListener('input', (e) => {
+  const key = e.target.dataset.k;
+  if (e.target.type !== 'range' || !key) return;
+  $(`#out-${key}`).textContent = e.target.value + e.target.dataset.u;
+  if (key === 'speed') $('.power').style.setProperty('--spin', SPIN[e.target.value]);
+});
+document.addEventListener('change', (e) => {
+  if (e.target.type !== 'range') return;
+  byId(state.openId).v[e.target.dataset.k] = Number(e.target.value);
+  render();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && state.openId) return actions.close();
+  const el = e.target.closest?.('.tile');
+  if (!el) return;
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); return actions.open(el); }
+  const step = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+  if (!e.altKey || !step) return;
+  e.preventDefault();
+  const sibling = step < 0 ? el.previousElementSibling : el.nextElementSibling;
+  if (!sibling) return;
+  moveTile(el, sibling);
+  saveOrder();
+  el.focus();
+});
+
+/* ---------- Перетаскивание плиток ---------- */
+let drag = null;
+
+function moveTile(el, target) {
+  const tiles = [...el.parentNode.children];
+  const before = new Map(tiles.map((t) => [t, t.getBoundingClientRect()]));
+  const forward = tiles.indexOf(el) < tiles.indexOf(target);
+  target[forward ? 'after' : 'before'](el);
+  for (const t of tiles) {
+    if (t === el && drag) continue;
+    const now = t.getBoundingClientRect();
+    const dx = before.get(t).left - now.left;
+    const dy = before.get(t).top - now.top;
+    if (!dx && !dy) continue;
+    t.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  }
+}
+
+function saveOrder() {
+  const shownIds = [...$('#grid').children].map((t) => t.dataset.id);
+  const queue = shownIds.map(byId);
+  devices = devices.map((d) => (shownIds.includes(d.id) ? queue.shift() : d));
+  store.set('order', devices.map((d) => d.id));
+}
+
+function placeDragged(e) {
+  const el = drag.el;
+  el.style.transform = '';
+  const rect = el.getBoundingClientRect();
+  el.style.transform = `translate(${e.clientX - drag.dx - rect.left}px, ${e.clientY - drag.dy - rect.top}px) scale(1.05) rotate(1.5deg)`;
+}
+
+function beginDrag() {
+  const rect = drag.el.getBoundingClientRect();
+  drag.dx = drag.x - rect.left;
+  drag.dy = drag.y - rect.top;
+  drag.active = true;
+  drag.el.classList.add('dragging');
+  navigator.vibrate?.(12);
+}
+
+function endDrag() {
+  if (!drag) return;
+  clearTimeout(drag.timer);
+  const el = drag.el;
+  const wasActive = drag.active;
+  drag = null;
+  if (!wasActive) return;
+  const from = el.style.transform;
+  el.style.transform = '';
+  el.classList.remove('dragging');
+  el.animate([{ transform: from }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  saveOrder();
+  suppressClick = true;
+  setTimeout(() => { suppressClick = false; }, 60);
+}
+
+document.addEventListener('pointerdown', (e) => {
+  const el = e.target.closest('#grid .tile');
+  if (!el || e.target.closest('.switch') || e.button) return;
+  drag = { el, x: e.clientX, y: e.clientY, active: false, swapLock: 0 };
+  if (e.pointerType !== 'mouse') drag.timer = setTimeout(beginDrag, 280);
+});
+
+document.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  if (!drag.active) {
+    const moved = Math.hypot(e.clientX - drag.x, e.clientY - drag.y);
+    if (e.pointerType === 'mouse' && moved > 6) beginDrag();
+    else if (moved > 10) endDrag();
+    return;
+  }
+  placeDragged(e);
+  const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('#grid .tile');
+  if (!target || target === drag.el || performance.now() < drag.swapLock) return;
+  moveTile(drag.el, target);
+  drag.swapLock = performance.now() + 220;
+  placeDragged(e);
+});
+
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
+document.addEventListener('touchmove', (e) => { if (drag?.active) e.preventDefault(); }, { passive: false });
+document.addEventListener('contextmenu', (e) => { if (e.target.closest('#grid .tile')) e.preventDefault(); });
+document.addEventListener('dragstart', (e) => e.preventDefault());
+
+applyTheme();
+render();
+</script>
