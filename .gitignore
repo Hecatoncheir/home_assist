@@ -1,0 +1,18 @@
+# Flutter/Dart
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# ОС
+.DS_Store
+Thumbs.db
+
+# Секреты
+*.env
+secrets/
