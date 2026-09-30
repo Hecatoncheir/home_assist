@@ -34,7 +34,7 @@ Device _device(
 );
 
 final _devices = [
-  _device('1', 'Вентилятор', 'dmaker.fan.p5', 'ru'),
+  _device('1', 'Вентилятор', 'dmaker.fan.p44', 'ru'),
   _device('2', 'Лампа у кровати', 'yeelink.light.bslamp2', 'ru'),
   _device('3', 'Увлажнитель', 'deerma.humidifier.jsq', 'cn'),
   _device('4', 'Очиститель воздуха', 'zhimi.airp.mb4a', 'cn'),
@@ -101,7 +101,9 @@ class DemoTransport implements DeviceTransport {
 
   Object? _initialValue(MiotProperty property) {
     if (property.format == 'bool') return false;
-    if (property.values.isNotEmpty) return property.values.first.value;
+    // Ноль в списках значений обычно означает «норма»: «нет ошибки» и т. п.
+    final values = property.values.map((option) => option.value);
+    if (values.isNotEmpty) return values.contains(0) ? 0 : values.first;
     final range = property.range;
     if (range == null) return null;
     final middle = (range.min + range.max) / 2;
