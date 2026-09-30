@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/preferences.dart';
+import '../l10n.dart';
 import '../theme.dart';
 
 /// Увеличивает или уменьшает весь интерфейс: приложение раскладывается
@@ -62,11 +63,12 @@ class UiScaleControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final percent = (prefs.uiScale * 100).round();
+    final l = context.l10n;
     return Row(
       children: [
-        const Expanded(child: Text('Масштаб интерфейса')),
+        Expanded(child: Text(l.uiScale)),
         IconButton.outlined(
-          tooltip: 'Уменьшить (Ctrl + −)',
+          tooltip: l.zoomOut,
           onPressed: prefs.canZoomOut ? prefs.zoomOut : null,
           icon: const Icon(Icons.remove),
         ),
@@ -82,7 +84,7 @@ class UiScaleControl extends StatelessWidget {
           ),
         ),
         IconButton.outlined(
-          tooltip: 'Увеличить (Ctrl + +)',
+          tooltip: l.zoomIn,
           onPressed: prefs.canZoomIn ? prefs.zoomIn : null,
           icon: const Icon(Icons.add),
         ),

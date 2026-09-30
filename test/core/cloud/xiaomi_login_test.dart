@@ -70,9 +70,9 @@ void main() {
       () => _login(server).submit(user: 'user', password: 'bad'),
       throwsA(
         isA<LoginException>().having(
-          (e) => e.message,
-          'message',
-          'Неверный логин или пароль',
+          (e) => e.failure,
+          'failure',
+          LoginFailure.wrongCredentials,
         ),
       ),
     );

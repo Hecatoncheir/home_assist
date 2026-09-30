@@ -63,6 +63,6 @@ class CloudTransport implements DeviceTransport {
   }
 
   void _check(Object? code) {
-    if (code != 0) throw CloudException('Устройство отклонило команду ($code)');
+    if (code != 0) throw CommandRejectedException(code);
   }
 }

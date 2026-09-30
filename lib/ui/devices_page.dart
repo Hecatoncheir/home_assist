@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 import '../core/accounts/session.dart';
-import '../core/cloud/regions.dart';
 import '../core/devices/device.dart';
 import '../core/devices/device_controller.dart';
 import '../core/devices/device_repository.dart';
 import '../core/preferences.dart';
 import 'device_sheet.dart';
+import 'l10n.dart';
 import 'theme.dart';
 import 'widgets/device_tile.dart';
 import 'widgets/reveal.dart';
@@ -209,22 +209,23 @@ class _Header extends StatelessWidget {
   final bool loading;
   final VoidCallback onRefresh;
 
-  String get _greeting {
+  String _greeting(AppLocalizations l) {
     final hour = DateTime.now().hour;
-    if (hour < 5) return 'Доброй ночи';
-    if (hour < 12) return 'Доброе утро';
-    return hour < 18 ? 'Добрый день' : 'Добрый вечер';
+    if (hour < 5) return l.greetingNight;
+    if (hour < 12) return l.greetingMorning;
+    return hour < 18 ? l.greetingDay : l.greetingEvening;
   }
 
-  String get _summary {
+  String _summary(AppLocalizations l) {
     final online = devices.where((d) => d.isOnline).length;
     final regions = devices.map((d) => d.region).toSet().length;
-    return 'В сети $online из ${devices.length} · регионов: $regions';
+    return l.devicesSummary(online, devices.length, regions);
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l = context.l10n;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -232,14 +233,14 @@ class _Header extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_greeting, style: context.display(28)),
+              Text(_greeting(l), style: context.display(28)),
               const SizedBox(height: 8),
-              Text(_summary, style: TextStyle(color: c.muted)),
+              Text(_summary(l), style: TextStyle(color: c.muted)),
             ],
           ),
         ),
         IconButton.filled(
-          tooltip: 'Обновить список',
+          tooltip: l.refreshList,
           style: IconButton.styleFrom(
             backgroundColor: c.tile,
             foregroundColor: c.ink,
@@ -274,8 +275,9 @@ class _RegionAlert extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l = context.l10n;
     final region =
-        '${regionNames[result.region]} (${result.region.toUpperCase()})';
+        '${l.regionName(result.region)} (${result.region.toUpperCase()})';
     return Container(
       margin: const EdgeInsets.only(top: 14),
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
@@ -289,10 +291,14 @@ class _RegionAlert extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              [region, ?account, 'недоступен: ${result.error}'].join(' · '),
+              [
+                region,
+                ?account,
+                l.regionUnavailable(describeError(l, result.error!)),
+              ].join(' · '),
             ),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Повторить')),
+          TextButton(onPressed: onRetry, child: Text(l.retry)),
         ],
       ),
     );
@@ -323,7 +329,7 @@ class _FilterChips extends StatelessWidget {
       child: Row(
         spacing: 8,
         children: [
-          _chip(_allFilter, 'Все', devices.length),
+          _chip(_allFilter, context.l10n.filterAll, devices.length),
           for (final region in regions)
             _chip(region, region.toUpperCase(), count(region)),
           if (accounts.length > 1)
@@ -391,7 +397,7 @@ class _EmptyState extends StatelessWidget {
       child: loading
           ? const CircularProgressIndicator()
           : Text(
-              'Устройства не найдены',
+              context.l10n.noDevices,
               style: TextStyle(color: context.colors.muted),
             ),
     ),

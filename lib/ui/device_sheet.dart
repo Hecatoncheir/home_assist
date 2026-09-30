@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../core/cloud/regions.dart';
 import '../core/devices/device_controller.dart';
 import '../core/devices/device_probe.dart';
 import 'device_probe_page.dart';
+import 'l10n.dart';
 import 'theme.dart';
 import 'widgets/device_tile.dart';
 import 'widgets/glass.dart';
@@ -34,7 +34,7 @@ Future<void> showDeviceSheet(
   return showGeneralDialog(
     context: context,
     barrierDismissible: true,
-    barrierLabel: 'Закрыть',
+    barrierLabel: context.l10n.close,
     barrierColor: Colors.black26,
     transitionDuration: const Duration(milliseconds: 320),
     pageBuilder: (_, _, _) => _SidePanel(child: _DeviceDetails(controller)),
@@ -97,6 +97,7 @@ class _DeviceDetailsState extends State<_DeviceDetails> {
 
   Widget _build(BuildContext context, Widget? _) {
     final c = context.colors;
+    final l = context.l10n;
     final device = _controller.device;
     final error = _controller.error;
     return SingleChildScrollView(
@@ -114,7 +115,7 @@ class _DeviceDetailsState extends State<_DeviceDetails> {
                 ),
               ),
               IconButton(
-                tooltip: 'Закрыть',
+                tooltip: l.close,
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.of(context).pop(),
               ),
@@ -124,30 +125,33 @@ class _DeviceDetailsState extends State<_DeviceDetails> {
           Center(child: _PowerButton(_controller)),
           const SizedBox(height: 14),
           Text(
-            deviceStatus(_controller),
+            deviceStatus(l, _controller),
             textAlign: TextAlign.center,
             style: TextStyle(color: c.muted),
           ),
           if (error != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: Text(error, style: TextStyle(color: c.bad)),
+              child: Text(
+                describeError(l, error),
+                style: TextStyle(color: c.bad),
+              ),
             ),
           _controls(context),
           Divider(color: c.line, height: 32),
-          _InfoRow('Модель', device.model),
+          _InfoRow(l.infoModel, device.model),
           _InfoRow('DID', device.did),
           _InfoRow(
-            'Регион',
-            '${regionNames[device.region]} · ${device.region}',
+            l.infoRegion,
+            '${l.regionName(device.region)} · ${device.region}',
           ),
-          _InfoRow('Аккаунт', device.accountId),
+          _InfoRow(l.infoAccount, device.accountId),
           _InfoRow('IP', device.localIp.isEmpty ? '—' : device.localIp),
           const SizedBox(height: 8),
           TextButton.icon(
             onPressed: device.isOnline ? () => _openProbe(context) : null,
             icon: const Icon(Icons.science_outlined),
-            label: const Text('Исследовать устройство'),
+            label: Text(l.exploreDevice),
           ),
         ],
       ),
@@ -167,7 +171,7 @@ class _DeviceDetailsState extends State<_DeviceDetails> {
 
   Widget _controls(BuildContext context) {
     final spec = _controller.spec;
-    if (spec == null) return _Note(_missingSpecText);
+    if (spec == null) return _Note(_missingSpecText(context.l10n));
     final enabled = _controller.device.isOnline;
     return IgnorePointer(
       ignoring: !enabled,
@@ -191,23 +195,21 @@ class _DeviceDetailsState extends State<_DeviceDetails> {
     children: [
       Divider(color: context.colors.line, height: 32),
       Text(
-        'НАПРАВЛЕНИЕ',
+        context.l10n.direction.toUpperCase(),
         style: context
             .display(11, weight: FontWeight.w700)
             .copyWith(color: context.colors.muted, letterSpacing: 1),
       ),
       const SizedBox(height: 12),
       if (_controller.isOn == false)
-        const _Note('Включите вентилятор, чтобы повернуть его.')
+        _Note(context.l10n.turnOnToRotate)
       else
         SwingDial(swing: _controller.swing),
     ],
   );
 
-  String get _missingSpecText => _controller.loaded
-      ? 'Для этой модели нет опубликованной спецификации, '
-            'поэтому управлять ею пока нельзя.'
-      : 'Загружаем описание устройства…';
+  String _missingSpecText(AppLocalizations l) =>
+      _controller.loaded ? l.noSpec : l.loadingSpec;
 }
 
 class _Note extends StatelessWidget {

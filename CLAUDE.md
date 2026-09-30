@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## О проекте
 
-Flutter-приложение (Windows, macOS, Linux, Android, iOS) для управления устройствами Xiaomi / Mijia через неофициальный облачный API Xiaomi. Главная идея — устройства **всех регионов** (`cn`, `ru`, `de`, `us`, `sg`, `i2`, `tw`) и **всех аккаунтов** в одном списке. Весь пользовательский текст, комментарии, doc-комментарии, названия тестов и сообщения коммитов — на русском. План работ и известные пробелы — в `TODO.md`.
+Flutter-приложение (Windows, macOS, Linux, Android, iOS) для управления устройствами Xiaomi / Mijia через неофициальный облачный API Xiaomi. Главная идея — устройства **всех регионов** (`cn`, `ru`, `de`, `us`, `sg`, `i2`, `tw`) и **всех аккаунтов** в одном списке. Комментарии, doc-комментарии, названия тестов и сообщения коммитов — на русском. План работ и известные пробелы — в `TODO.md`.
 
 ## Команды
 
@@ -45,10 +45,20 @@ ICONS=1 flutter test test/screenshots/icon_test.dart && dart run flutter_launche
 - **Несколько аккаунтов.** `HomeAssistApp` (`ui/app.dart`) держит список сессий; `HomeShell` на каждую сессию создаёт «связь» `(DeviceRepository, DeviceTransport)` по `accountId` и объединяет устройства. Устройство, видимое из нескольких аккаунтов, показывается один раз.
 - **Демо (`lib/demo/demo.dart`).** `demoSession` (`isDemo`) подключает `DemoDeviceRepository` и `DemoTransport` вместо облачных; команды никуда не уходят, но спецификации берутся настоящие. Демо-сессия никогда не сохраняется в `SessionStore`. Новые возможности UI стоит показывать и в демо — скриншоты README снимаются именно с него.
 
+## Переводы
+
+Интерфейс на русском, английском и китайском (`Preferences.language`: `system`, `ru`, `en`, `zh`). Строки лежат в `lib/l10n/app_{ru,en,zh}.arb`, шаблон — `app_ru.arb`; `app_localizations*.dart` рядом генерируются `flutter gen-l10n` (и при `flutter pub get`) и коммитятся вместе с ARB. В коде строки берутся через `context.l10n` из `lib/ui/l10n.dart`.
+
+- Новую строку добавлять во все три ARB — `test/ui/language_test.dart` сверяет наборы ключей.
+- Генератор упорядочивает параметры сообщения **по алфавиту**. Если параметров несколько, в `app_ru.arb` нужна запись `@ключ` с `placeholders` в нужном порядке.
+- Ядро (`lib/core`) не содержит текста для пользователя: исключения несут причину (`LoginFailure`, `CommandRejectedException`, технические `details`), а текст подбирает `describeError` в `lib/ui/l10n.dart`. Названия регионов (`regionName`) и демо-устройств (`demoDeviceName`) тоже в ARB.
+- Названия свойств и режимов в панели устройства приходят из спецификации MIoT и не переводятся.
+
 ## Тесты
 
 - Сеть в тестах всегда подменена. `test/support/fake_cloud.dart` → `fakeCloud(respond, calls: …)` даёт настоящий `MiCloudClient` поверх `MockClient`, который расшифровывает запрос и шифрует ответ — так проверяется и подпись, и содержимое вызовов.
 - Реальные спецификации лежат в `test/fixtures/spec/<model>.json`; в тестах используется `SpecRepository(cacheDir: Directory('test/fixtures'))`, чтобы они читались из «кэша» без сети.
+- Виджет-тесты задают `MaterialApp` с `locale: Locale('ru')` и делегатами `AppLocalizations` — иначе `context.l10n` упадёт, а тексты в `find.text` не совпадут.
 - Для логики с таймерами (опрос, качание вентилятора) используется `fake_async`.
 
 ## Стиль кода

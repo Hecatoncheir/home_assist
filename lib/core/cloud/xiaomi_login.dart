@@ -45,12 +45,31 @@ class QrChallenge {
   final Duration timeout;
 }
 
+/// Почему не удался вход. Текст для пользователя подбирает интерфейс.
+enum LoginFailure {
+  noQrCode,
+  qrFailed,
+  qrExpired,
+  codeNotRequested,
+  wrongCode,
+  noSession,
+  noServiceToken,
+  wrongCredentials,
+  rejected,
+  unexpectedResponse,
+}
+
 class LoginException implements Exception {
-  LoginException(this.message);
-  final String message;
+  LoginException(this.failure, {this.code, this.details = ''});
+
+  final LoginFailure failure;
+
+  /// Код и описание ошибки от сервера, если он их прислал.
+  final Object? code;
+  final String details;
 
   @override
-  String toString() => message;
+  String toString() => 'LoginException(${failure.name}, $code, $details)';
 }
 
 /// Вход в аккаунт Xiaomi (`sid=xiaomiio`): по логину и паролю или по QR-коду.
@@ -97,7 +116,7 @@ class XiaomiLogin {
     final qr = json['qr'];
     final poll = json['lp'];
     if (qr is! String || poll is! String) {
-      throw LoginException('Сервер Xiaomi не выдал QR-код');
+      throw LoginException(LoginFailure.noQrCode);
     }
     final image = await _http.get(Uri.parse(qr));
     return QrChallenge(
@@ -117,11 +136,11 @@ class XiaomiLogin {
       final response = await _pollOnce(challenge.pollUrl);
       if (response == null) continue;
       if (response.statusCode != 200) {
-        throw LoginException('Вход по QR-коду не удался, получите новый код');
+        throw LoginException(LoginFailure.qrFailed);
       }
       return _finish(parseXiaomiJson(response.body));
     }
-    throw LoginException('QR-код устарел, получите новый');
+    throw LoginException(LoginFailure.qrExpired);
   }
 
   /// Прекращает ожидание, например когда пользователь ушёл с экрана.
@@ -159,7 +178,7 @@ class XiaomiLogin {
 
   Future<LoginStep> submitCode(String code) async {
     final twoFactor = _twoFactor;
-    if (twoFactor == null) throw LoginException('Код не запрашивался');
+    if (twoFactor == null) throw LoginException(LoginFailure.codeNotRequested);
 
     final flag = '${twoFactor.flag}';
     final response = await _http.postForm(
@@ -173,7 +192,7 @@ class XiaomiLogin {
     final json = parseXiaomiJson(response.body);
     final location = json['location'];
     if (json['code'] != 0 || location is! String) {
-      throw LoginException('Неверный код подтверждения');
+      throw LoginException(LoginFailure.wrongCode);
     }
 
     // Проход по цепочке выставляет passToken, после чего serviceLogin
@@ -205,7 +224,7 @@ class XiaomiLogin {
     if (notificationUrl is String && notificationUrl.isNotEmpty) {
       return _startTwoFactor(notificationUrl);
     }
-    if (json['code'] != 0) throw LoginException(_describeError(json));
+    if (json['code'] != 0) throw _loginError(json);
     return _finish(json);
   }
 
@@ -246,13 +265,13 @@ class XiaomiLogin {
     final ssecurity = json['ssecurity'];
     final location = json['location'];
     if (ssecurity is! String || location is! String || location.isEmpty) {
-      throw LoginException('Сервер Xiaomi не вернул данные сессии');
+      throw LoginException(LoginFailure.noSession);
     }
 
     await _http.getChain(Uri.parse(location));
     final serviceToken = _http.cookie('serviceToken');
     if (serviceToken == null) {
-      throw LoginException('Сервер Xiaomi не выдал serviceToken');
+      throw LoginException(LoginFailure.noServiceToken);
     }
     return LoginSuccess(
       Session(
@@ -263,10 +282,15 @@ class XiaomiLogin {
     );
   }
 
-  String _describeError(Map<String, dynamic> json) {
-    if (json['code'] == 70016) return 'Неверный логин или пароль';
-    final description = json['desc'] ?? json['description'] ?? 'нет описания';
-    return 'Ошибка входа ${json['code']}: $description';
+  LoginException _loginError(Map<String, dynamic> json) {
+    final code = json['code'];
+    if (code == 70016) return LoginException(LoginFailure.wrongCredentials);
+    final description = json['desc'] ?? json['description'] ?? '—';
+    return LoginException(
+      LoginFailure.rejected,
+      code: code,
+      details: '$description',
+    );
   }
 
   static String _userAgent(Random random) {
@@ -291,7 +315,7 @@ class XiaomiLogin {
 /// Ответы сервера аккаунтов начинаются с защитного префикса `&&&START&&&`.
 Map<String, dynamic> parseXiaomiJson(String body) {
   final start = body.indexOf('{');
-  if (start < 0) throw LoginException('Неожиданный ответ сервера Xiaomi');
+  if (start < 0) throw LoginException(LoginFailure.unexpectedResponse);
   return jsonDecode(body.substring(start)) as Map<String, dynamic>;
 }
 

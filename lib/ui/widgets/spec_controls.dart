@@ -2,29 +2,32 @@ import 'package:flutter/material.dart';
 
 import '../../core/devices/device_controller.dart';
 import '../../core/spec/miot_spec.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import 'home_switch.dart';
 import 'speed_dial.dart';
 
-const _units = {
-  'percentage': ' %',
-  'celsius': ' °C',
-  'kelvin': ' K',
-  'seconds': ' с',
-  'minutes': ' мин',
-  'hours': ' ч',
-  'watt': ' Вт',
-  'lux': ' лк',
-  'ppm': ' ppm',
+String? _unit(AppLocalizations l, String? unit) => switch (unit) {
+  'percentage' => '%',
+  'celsius' => '°C',
+  'kelvin' => 'K',
+  'ppm' => 'ppm',
+  'seconds' => l.unitSeconds,
+  'minutes' => l.unitMinutes,
+  'hours' => l.unitHours,
+  'watt' => l.unitWatt,
+  'lux' => l.unitLux,
+  _ => null,
 };
 
-String formatValue(MiotProperty property, Object? value) {
+String formatValue(AppLocalizations l, MiotProperty property, Object? value) {
   if (value == null) return '—';
-  if (value is bool) return value ? 'Да' : 'Нет';
+  if (value is bool) return value ? l.yes : l.no;
   for (final option in property.values) {
     if (option.value == value) return option.label;
   }
-  return '$value${_units[property.unit] ?? ''}';
+  final unit = _unit(l, property.unit);
+  return unit == null ? '$value' : '$value $unit';
 }
 
 /// Элементы управления одного сервиса, построенные по спецификации:
@@ -153,7 +156,7 @@ class _ValueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = formatValue(property, value);
+    final text = formatValue(context.l10n, property, value);
     final style = context.mono(size: 13);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),

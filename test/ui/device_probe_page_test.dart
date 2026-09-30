@@ -7,6 +7,7 @@ import 'package:home_assist/core/devices/device_probe.dart';
 import 'package:home_assist/core/spec/spec_repository.dart';
 import 'package:home_assist/demo/demo.dart';
 import 'package:home_assist/ui/device_probe_page.dart';
+import 'package:home_assist/l10n/app_localizations.dart';
 import 'package:home_assist/ui/theme.dart';
 
 const _fan = Device(
@@ -39,6 +40,9 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             theme: buildTheme(HomeColors.light, Brightness.light),
+            locale: const Locale('ru'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: DeviceProbePage(probe: probe),
           ),
         );

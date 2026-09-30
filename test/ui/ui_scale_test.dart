@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:home_assist/core/accounts/session.dart';
 import 'package:home_assist/core/preferences.dart';
 import 'package:home_assist/ui/settings_page.dart';
+import 'package:home_assist/l10n/app_localizations.dart';
 import 'package:home_assist/ui/theme.dart';
 import 'package:home_assist/ui/widgets/ui_scale.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +21,9 @@ void main() {
         listenable: prefs,
         builder: (context, _) => MaterialApp(
           theme: buildTheme(HomeColors.light, Brightness.light),
+          locale: const Locale('ru'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => UiScale(prefs: prefs, child: child!),
           home: Scaffold(
             body: SettingsPage(

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/devices/device.dart';
 import '../../core/devices/device_controller.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import 'home_switch.dart';
 import 'reveal.dart';
@@ -77,12 +78,12 @@ class _RotorPainter extends CustomPainter {
   bool shouldRepaint(_RotorPainter old) => old.color != color;
 }
 
-String deviceStatus(DeviceController controller) {
-  if (!controller.device.isOnline) return 'Не в сети';
+String deviceStatus(AppLocalizations l, DeviceController controller) {
+  if (!controller.device.isOnline) return l.statusOffline;
   return switch (controller.isOn) {
-    true => 'Включено',
-    false => 'Выключено',
-    null => 'В сети',
+    true => l.statusOn,
+    false => l.statusOff,
+    null => l.statusOnline,
   };
 }
 
@@ -162,7 +163,7 @@ class DeviceTile extends StatelessWidget {
                           ),
                           _Caption(
                             device: device,
-                            status: deviceStatus(controller),
+                            status: deviceStatus(context.l10n, controller),
                             muted: lit ? ink.withValues(alpha: .75) : c.muted,
                           ),
                         ],

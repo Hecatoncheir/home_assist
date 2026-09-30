@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:home_assist/core/cloud/mi_cloud_client.dart';
 import 'package:home_assist/core/devices/device.dart';
 import 'package:home_assist/core/devices/device_controller.dart';
 import 'package:home_assist/core/devices/device_transport.dart';
@@ -84,6 +85,6 @@ void main() {
     await controller.toggle();
 
     expect(controller.isOn, isFalse);
-    expect(controller.error, contains('отклонило'));
+    expect(controller.error, isA<CommandRejectedException>());
   });
 }

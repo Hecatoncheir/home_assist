@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/devices/device_controller.dart';
 import '../../core/spec/miot_spec.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import 'gauge.dart';
 
@@ -66,14 +67,14 @@ class _SpeedDialState extends State<SpeedDial> {
         ),
         left: GaugeButton(
           icon: Icons.remove,
-          tooltip: 'Медленнее',
+          tooltip: context.l10n.slower,
           onPressed: value == null || value <= steps.min
               ? null
               : () => _set(steps.previous(value)),
         ),
         right: GaugeButton(
           icon: Icons.add,
-          tooltip: 'Быстрее',
+          tooltip: context.l10n.faster,
           onPressed: value == null || value >= steps.max
               ? null
               : () => _set(steps.next(value)),
@@ -99,7 +100,10 @@ class _Face extends StatelessWidget {
         Icon(Icons.air, size: 22, color: c.glowB),
         const SizedBox(height: 4),
         Text(text, style: context.display(30)),
-        Text('скорость', style: TextStyle(color: c.muted, fontSize: 12)),
+        Text(
+          context.l10n.speed,
+          style: TextStyle(color: c.muted, fontSize: 12),
+        ),
       ],
     );
   }

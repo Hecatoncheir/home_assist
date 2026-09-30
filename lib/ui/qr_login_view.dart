@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/accounts/session.dart';
 import '../core/cloud/xiaomi_login.dart';
+import 'l10n.dart';
 import 'theme.dart';
 
 /// Вход по QR-коду: код сканируют в Mi Home на телефоне, пароль не нужен.
@@ -23,7 +24,7 @@ class QrLoginView extends StatefulWidget {
 
 class _QrLoginViewState extends State<QrLoginView> {
   QrChallenge? _challenge;
-  String? _error;
+  Object? _error;
 
   @override
   void initState() {
@@ -51,44 +52,31 @@ class _QrLoginViewState extends State<QrLoginView> {
       if (mounted && step is LoginSuccess) {
         await widget.onLoggedIn(step.session);
       }
-    } on LoginException catch (e) {
-      if (mounted) setState(() => _error = e.message);
     } catch (e) {
-      if (mounted) {
-        setState(() => _error = 'Не удалось связаться с сервером: $e');
-      }
+      if (mounted) setState(() => _error = e);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l = context.l10n;
     final error = _error;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Отсканируйте код в приложении Mi Home или на телефоне Xiaomi '
-          '(Настройки → Аккаунт Xiaomi) и подтвердите вход.',
-          style: TextStyle(color: c.muted),
-        ),
+        Text(l.qrInstructions, style: TextStyle(color: c.muted)),
         const SizedBox(height: 18),
         Center(child: _code(c)),
         const SizedBox(height: 14),
         if (error != null)
-          Text(error, style: TextStyle(color: c.bad))
+          Text(describeError(l, error), style: TextStyle(color: c.bad))
         else
-          _waiting(c),
+          _waiting(c, l),
         const SizedBox(height: 18),
         if (error != null)
-          FilledButton(
-            onPressed: _start,
-            child: const Text('Получить новый код'),
-          ),
-        TextButton(
-          onPressed: widget.onBack,
-          child: const Text('Войти по логину и паролю'),
-        ),
+          FilledButton(onPressed: _start, child: Text(l.qrNewCode)),
+        TextButton(onPressed: widget.onBack, child: Text(l.qrUsePassword)),
       ],
     );
   }
@@ -111,22 +99,17 @@ class _QrLoginViewState extends State<QrLoginView> {
     );
   }
 
-  Widget _waiting(HomeColors c) {
+  Widget _waiting(HomeColors c, AppLocalizations l) {
     final url = _challenge?.loginUrl ?? '';
     return Column(
       children: [
         Text(
-          _challenge == null
-              ? 'Получаем код…'
-              : 'Ждём подтверждения на телефоне…',
+          _challenge == null ? l.qrLoading : l.qrWaiting,
           style: TextStyle(color: c.muted),
         ),
         if (url.isNotEmpty) ...[
           const SizedBox(height: 10),
-          Text(
-            'Код не читается? Откройте ссылку на телефоне:',
-            style: TextStyle(color: c.muted, fontSize: 13),
-          ),
+          Text(l.qrLinkHint, style: TextStyle(color: c.muted, fontSize: 13)),
           SelectableText(
             url,
             textAlign: TextAlign.center,

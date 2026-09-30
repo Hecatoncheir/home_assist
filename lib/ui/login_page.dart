@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/accounts/session.dart';
 import '../core/cloud/xiaomi_login.dart';
 import '../demo/demo.dart';
+import 'l10n.dart';
 import 'qr_login_view.dart';
 import 'theme.dart';
 import 'widgets/logo.dart';
@@ -36,7 +37,7 @@ class _LoginPageState extends State<LoginPage> {
 
   /// Капча или двухфакторная проверка, если сервер их запросил.
   LoginStep? _step;
-  String? _error;
+  Object? _error;
   bool _busy = false;
 
   /// Вход по QR-коду вместо логина и пароля.
@@ -73,10 +74,8 @@ class _LoginPageState extends State<LoginPage> {
         return await widget.onLoggedIn(session);
       }
       _step = step;
-    } on LoginException catch (e) {
-      _error = e.message;
     } catch (e) {
-      _error = 'Не удалось связаться с сервером: $e';
+      _error = e;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -85,6 +84,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l = context.l10n;
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
@@ -99,7 +99,7 @@ class _LoginPageState extends State<LoginPage> {
                   child: TextButton.icon(
                     onPressed: widget.onCancel,
                     icon: const Icon(Icons.arrow_back),
-                    label: const Text('К настройкам'),
+                    label: Text(l.backToSettings),
                   ),
                 ),
               const Align(
@@ -107,12 +107,9 @@ class _LoginPageState extends State<LoginPage> {
                 child: Logo(size: 64),
               ),
               const SizedBox(height: 20),
-              Text('Весь дом в одном списке', style: context.display(26)),
+              Text(l.loginTitle, style: context.display(26)),
               const SizedBox(height: 10),
-              Text(
-                'Устройства Xiaomi из всех регионов. Пароль не сохраняется.',
-                style: TextStyle(color: c.muted),
-              ),
+              Text(l.loginSubtitle, style: TextStyle(color: c.muted)),
               const SizedBox(height: 22),
               if (_qrMode)
                 QrLoginView(
@@ -121,7 +118,7 @@ class _LoginPageState extends State<LoginPage> {
                   onBack: () => setState(() => _qrMode = false),
                 )
               else
-                ..._passwordForm(c),
+                ..._passwordForm(c, l),
             ],
           ),
         ),
@@ -129,19 +126,19 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  List<Widget> _passwordForm(HomeColors c) {
+  List<Widget> _passwordForm(HomeColors c, AppLocalizations l) {
     final step = _step;
     final error = _error;
     return [
       TextField(
         controller: _user,
-        decoration: const InputDecoration(labelText: 'Почта, телефон или ID'),
+        decoration: InputDecoration(labelText: l.loginUser),
       ),
       const SizedBox(height: 14),
       TextField(
         controller: _password,
         obscureText: true,
-        decoration: const InputDecoration(labelText: 'Пароль'),
+        decoration: InputDecoration(labelText: l.loginPassword),
         onSubmitted: (_) => _submit(),
       ),
       if (step is CaptchaRequired) ...[
@@ -151,34 +148,34 @@ class _LoginPageState extends State<LoginPage> {
           child: Image.memory(step.image, height: 64),
         ),
         const SizedBox(height: 14),
-        _extraField('Текст с картинки'),
+        _extraField(l.loginCaptcha),
       ],
       if (step is TwoFactorRequired) ...[
         const SizedBox(height: 14),
-        _extraField(step.viaEmail ? 'Код из письма' : 'Код из SMS'),
+        _extraField(step.viaEmail ? l.loginCodeEmail : l.loginCodeSms),
       ],
       if (error != null) ...[
         const SizedBox(height: 14),
-        Text(error, style: TextStyle(color: c.bad)),
+        Text(describeError(l, error), style: TextStyle(color: c.bad)),
       ],
       const SizedBox(height: 18),
       FilledButton(
         onPressed: _busy ? null : _submit,
-        child: Text(_busy ? 'Входим…' : _buttonLabel),
+        child: Text(_busy ? l.loginBusy : _buttonLabel(l)),
       ),
       const SizedBox(height: 8),
       if (step != null)
-        TextButton(onPressed: _startOver, child: const Text('Назад'))
+        TextButton(onPressed: _startOver, child: Text(l.back))
       else ...[
         TextButton.icon(
           onPressed: () => setState(() => _qrMode = true),
           icon: const Icon(Icons.qr_code_2),
-          label: const Text('Войти по QR-коду'),
+          label: Text(l.loginWithQr),
         ),
         if (widget.onCancel == null)
           TextButton(
             onPressed: () => widget.onLoggedIn(demoSession),
-            child: const Text('Посмотреть демо без аккаунта'),
+            child: Text(l.loginDemo),
           ),
       ],
     ];
@@ -193,7 +190,8 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  String get _buttonLabel => _step == null ? 'Войти' : 'Продолжить';
+  String _buttonLabel(AppLocalizations l) =>
+      _step == null ? l.loginSubmit : l.loginContinue;
 
   Widget _extraField(String label) => TextField(
     controller: _extra,

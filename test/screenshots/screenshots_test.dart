@@ -19,6 +19,7 @@ import 'package:home_assist/demo/demo.dart';
 import 'package:home_assist/ui/home_shell.dart';
 import 'package:home_assist/ui/login_page.dart';
 import 'package:home_assist/ui/settings_page.dart';
+import 'package:home_assist/l10n/app_localizations.dart';
 import 'package:home_assist/ui/theme.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -53,6 +54,9 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: buildTheme(HomeColors.light, Brightness.light),
+            locale: const Locale('ru'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             darkTheme: buildTheme(HomeColors.dark, Brightness.dark),
             themeMode: dark ? ThemeMode.dark : ThemeMode.light,
             home: home,

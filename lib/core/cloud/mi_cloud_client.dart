@@ -6,17 +6,25 @@ import '../accounts/session.dart';
 import 'regions.dart';
 import 'request_signer.dart';
 
+/// Ошибка облака. [details] — технические подробности без перевода,
+/// текст для пользователя подбирает интерфейс.
 class CloudException implements Exception {
-  CloudException(this.message);
-  final String message;
+  CloudException(this.details);
+  final String details;
 
   @override
-  String toString() => message;
+  String toString() => details;
 }
 
 /// serviceToken истёк — нужен повторный вход.
 class SessionExpiredException extends CloudException {
-  SessionExpiredException() : super('Сессия истекла, войдите заново');
+  SessionExpiredException() : super('session expired');
+}
+
+/// Устройство ответило на команду кодом ошибки.
+class CommandRejectedException extends CloudException {
+  CommandRejectedException(this.code) : super('command rejected: $code');
+  final Object? code;
 }
 
 /// Подписанные запросы к облаку Xiaomi в любом регионе.
@@ -53,7 +61,7 @@ class MiCloudClient {
 
     final json = jsonDecode(_signer.decrypt(nonce, response.body));
     if (json['code'] != 0) {
-      throw CloudException('Ошибка ${json['code']}: ${json['message']}');
+      throw CloudException('${json['code']}: ${json['message']}');
     }
     return json['result'];
   }

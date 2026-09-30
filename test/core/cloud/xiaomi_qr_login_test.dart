@@ -77,9 +77,9 @@ void main() {
       () => login.waitForQr(challenge),
       throwsA(
         isA<LoginException>().having(
-          (e) => e.message,
-          'message',
-          contains('устарел'),
+          (e) => e.failure,
+          'failure',
+          LoginFailure.qrExpired,
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/devices/swing_controller.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import 'gauge.dart';
 
@@ -90,7 +91,7 @@ class _SwingDialState extends State<SwingDial>
         ),
         const SizedBox(height: 12),
         Text(
-          _hint,
+          _hint(context.l10n),
           textAlign: TextAlign.center,
           style: TextStyle(color: c.muted, fontSize: 13),
         ),
@@ -98,7 +99,7 @@ class _SwingDialState extends State<SwingDial>
           TextButton.icon(
             onPressed: _swing.retry,
             icon: const Icon(Icons.swap_horiz),
-            label: const Text('Поехал не туда — пересчитать'),
+            label: Text(context.l10n.swingRecalibrate),
           ),
       ],
     );
@@ -112,7 +113,7 @@ class _SwingDialState extends State<SwingDial>
 
   Widget _edgeButton(int edge, IconData icon) => GaugeButton(
     icon: icon,
-    tooltip: 'Держите, пока вентилятор стоит у этого края',
+    tooltip: context.l10n.swingHoldTooltip,
     state: _buttonState(edge),
     onHoldStart: () => _swing.holdStart(edge),
     onHoldEnd: _swing.holdEnd,
@@ -127,37 +128,21 @@ class _SwingDialState extends State<SwingDial>
         : GaugeButtonState.rejected;
   }
 
-  String get _hint {
+  String _hint(AppLocalizations l) {
     final result = _swing.holdResult;
-    if (_swing.holding) {
-      final seconds = _swing.holdElapsed!.inMilliseconds / 1000;
-      return 'Отпустите, как только вентилятор тронется от края… '
-          '${seconds.toStringAsFixed(1)} с';
-    }
-    if (result != null && !result.accepted) {
-      return 'Не засчитано: кнопку другого края нужно зажать, как только '
-          'вентилятор замрёт у него, а держать — пока стоит.';
-    }
-    if (_swing.awaitingOtherEdge) {
-      return 'Теперь зажмите кнопку другого края, как только вентилятор '
-          'замрёт у него, и отпустите, когда тронется.';
-    }
+    if (_swing.holding) return l.swingRelease(_seconds(_swing.holdElapsed!));
+    if (result != null && !result.accepted) return l.swingNotCounted;
+    if (_swing.awaitingOtherEdge) return l.swingOtherEdge;
     if (_swing.calibrating || !_swing.calibrated) {
-      return 'Калибровка. Когда вентилятор замрёт у края, зажмите кнопку '
-          'этого края и отпустите, как только он тронется. Затем то же '
-          'у другого края.';
+      return l.swingCalibrationIntro;
     }
-    if (_swing.position == null) {
-      return 'Положение сбилось: качание включали не из приложения. '
-          'Нажмите «Калибровка» и отметьте один край.';
-    }
-    if (_swing.target != null) return 'Поворачиваю…';
-    final sweep = _swing.sweep.inMilliseconds / 1000;
-    final dwell = _swing.dwell.inMilliseconds / 1000;
-    return 'Нажмите на дугу, чтобы повернуть вентилятор. '
-        'Проход — ${sweep.toStringAsFixed(1)} с, '
-        'пауза у края — ${dwell.toStringAsFixed(1)} с.';
+    if (_swing.position == null) return l.swingLost;
+    if (_swing.target != null) return l.swingTurning;
+    return l.swingReady(_seconds(_swing.sweep), _seconds(_swing.dwell));
   }
+
+  static String _seconds(Duration duration) =>
+      (duration.inMilliseconds / 1000).toStringAsFixed(1);
 }
 
 /// Лицевая сторона ручки: что сейчас происходит.
@@ -166,12 +151,12 @@ class _KnobFace extends StatelessWidget {
 
   final SwingController swing;
 
-  String get _status {
-    if (swing.holding) return 'стоит у края';
-    if (swing.calibrating) return 'ждём края';
-    if (swing.position == null) return 'нет данных';
-    if (swing.target != null) return 'поворот';
-    return swing.moving ? 'качается' : 'стоит';
+  String _status(AppLocalizations l) {
+    if (swing.holding) return l.swingStatusHolding;
+    if (swing.calibrating) return l.swingStatusWaitingEdge;
+    if (swing.position == null) return l.swingStatusNoData;
+    if (swing.target != null) return l.swingStatusTurning;
+    return swing.moving ? l.swingStatusSwinging : l.swingStatusStill;
   }
 
   @override
@@ -182,7 +167,10 @@ class _KnobFace extends StatelessWidget {
       children: [
         Icon(Icons.explore_outlined, size: 26, color: c.glowB),
         const SizedBox(height: 4),
-        Text(_status, style: TextStyle(color: c.muted, fontSize: 13)),
+        Text(
+          _status(context.l10n),
+          style: TextStyle(color: c.muted, fontSize: 13),
+        ),
         const SizedBox(height: 10),
         FilledButton(
           style: FilledButton.styleFrom(
@@ -193,7 +181,7 @@ class _KnobFace extends StatelessWidget {
             shape: const StadiumBorder(),
           ),
           onPressed: swing.holding ? null : swing.startCalibration,
-          child: const Text('Калибровка'),
+          child: Text(context.l10n.calibrate),
         ),
       ],
     );

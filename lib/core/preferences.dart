@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'cloud/regions.dart';
 import 'devices/swing_controller.dart';
 
-/// Несекретные настройки: тема, опрашиваемые регионы, порядок плиток.
+/// Несекретные настройки: тема, язык, опрашиваемые регионы, порядок плиток.
 class Preferences extends ChangeNotifier implements SwingCalibrations {
   Preferences(this._prefs);
 
@@ -22,6 +22,17 @@ class Preferences extends ChangeNotifier implements SwingCalibrations {
     _prefs.setString('theme', mode.name);
     notifyListeners();
   }
+
+  /// Код языка интерфейса (`ru`, `en`, `zh`) или `system` — как в системе.
+  String get language => _prefs.getString('language') ?? 'system';
+
+  set language(String code) {
+    _prefs.setString('language', code);
+    notifyListeners();
+  }
+
+  /// `null` — язык выбирает система.
+  Locale? get locale => language == 'system' ? null : Locale(language);
 
   static const _scaleStep = .1;
   static const _minScale = .8;

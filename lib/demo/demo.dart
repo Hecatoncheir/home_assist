@@ -15,37 +15,53 @@ const demoSession = Session(
   label: 'Демо',
 );
 
-Device _device(
+/// Выдуманное устройство; имя подставляется на языке интерфейса по [key].
+typedef _DemoDevice = ({
   String did,
-  String name,
+  String key,
+  String model,
+  String region,
+  bool online,
+});
+
+_DemoDevice _device(
+  String did,
+  String key,
   String model,
   String region, {
   bool online = true,
-}) => Device(
-  did: did,
-  model: model,
+}) => (did: did, key: key, model: model, region: region, online: online);
+
+Device _build(_DemoDevice demo, String name) => Device(
+  did: demo.did,
+  model: demo.model,
   name: name,
-  region: region,
+  region: demo.region,
   accountId: demoSession.userId,
-  localIp: online ? '192.168.1.${30 + int.parse(did)}' : '',
+  localIp: demo.online ? '192.168.1.${30 + int.parse(demo.did)}' : '',
   token: '',
-  isOnline: online,
+  isOnline: demo.online,
   parentId: '',
 );
 
 final _devices = [
-  _device('1', 'Вентилятор', 'dmaker.fan.p44', 'ru'),
-  _device('2', 'Лампа у кровати', 'yeelink.light.bslamp2', 'ru'),
-  _device('3', 'Увлажнитель', 'deerma.humidifier.jsq', 'cn'),
-  _device('4', 'Очиститель воздуха', 'zhimi.airp.mb4a', 'cn'),
-  _device('5', 'Розетка у стола', 'chuangmi.plug.m3', 'ru'),
-  _device('6', 'Обогреватель', 'zhimi.heater.mc2', 'cn'),
-  _device('7', 'Робот-пылесос', 'roborock.vacuum.s5', 'ru', online: false),
+  _device('1', 'fan', 'dmaker.fan.p44', 'ru'),
+  _device('2', 'lamp', 'yeelink.light.bslamp2', 'ru'),
+  _device('3', 'humidifier', 'deerma.humidifier.jsq', 'cn'),
+  _device('4', 'purifier', 'zhimi.airp.mb4a', 'cn'),
+  _device('5', 'plug', 'chuangmi.plug.m3', 'ru'),
+  _device('6', 'heater', 'zhimi.heater.mc2', 'cn'),
+  _device('7', 'vacuum', 'roborock.vacuum.s5', 'ru', online: false),
 ];
 
 const _onByDefault = {'1', '2', '4'};
 
 class DemoDeviceRepository implements DeviceRepository {
+  DemoDeviceRepository({required this.nameOf});
+
+  /// Имя устройства по его ключу (`fan`, `lamp`…) на языке интерфейса.
+  final String Function(String key) nameOf;
+
   @override
   Duration get timeout => Duration.zero;
 
@@ -57,7 +73,10 @@ class DemoDeviceRepository implements DeviceRepository {
       RegionResult(
         region,
         accountId: demoSession.userId,
-        devices: _devices.where((d) => d.region == region).toList(),
+        devices: [
+          for (final demo in _devices)
+            if (demo.region == region) _build(demo, nameOf(demo.key)),
+        ],
       ),
   ];
 }

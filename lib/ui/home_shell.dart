@@ -9,14 +9,15 @@ import '../core/preferences.dart';
 import '../core/spec/spec_repository.dart';
 import '../demo/demo.dart';
 import 'devices_page.dart';
+import 'l10n.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
 import 'widgets/glass.dart';
 import 'widgets/logo.dart';
 
-const _sections = [
-  (icon: Icons.home_outlined, label: 'Дом'),
-  (icon: Icons.tune, label: 'Настройки'),
+List<({IconData icon, String label})> _sections(AppLocalizations l) => [
+  (icon: Icons.home_outlined, label: l.navHome),
+  (icon: Icons.tune, label: l.settingsTitle),
 ];
 
 /// Связь с одним аккаунтом: откуда брать устройства и куда слать команды.
@@ -55,7 +56,10 @@ class _HomeShellState extends State<HomeShell> {
   _Link _connect(Session session) {
     if (session.isDemo) {
       return (
-        repository: DemoDeviceRepository(),
+        // Имена берутся при каждой загрузке списка, на текущем языке.
+        repository: DemoDeviceRepository(
+          nameOf: (id) => context.l10n.demoDeviceName(id),
+        ),
         transport: DemoTransport(widget.specs),
       );
     }
@@ -141,7 +145,7 @@ class _HomeShellState extends State<HomeShell> {
       child: Logo(),
     ),
     destinations: [
-      for (final section in _sections)
+      for (final section in _sections(context.l10n))
         NavigationRailDestination(
           icon: Icon(section.icon),
           label: Text(section.label),
@@ -156,7 +160,7 @@ class _HomeShellState extends State<HomeShell> {
       selectedIndex: _index,
       onDestinationSelected: _select,
       destinations: [
-        for (final section in _sections)
+        for (final section in _sections(context.l10n))
           NavigationDestination(icon: Icon(section.icon), label: section.label),
       ],
     ),

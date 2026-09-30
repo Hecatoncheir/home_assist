@@ -7,6 +7,7 @@ import 'package:home_assist/core/devices/device_controller.dart';
 import 'package:home_assist/core/devices/device_transport.dart';
 import 'package:home_assist/core/spec/miot_spec.dart';
 import 'package:home_assist/core/spec/spec_repository.dart';
+import 'package:home_assist/l10n/app_localizations.dart';
 import 'package:home_assist/ui/theme.dart';
 import 'package:home_assist/ui/widgets/spec_controls.dart';
 
@@ -68,6 +69,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildTheme(HomeColors.light, Brightness.light),
+        locale: const Locale('ru'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: ServiceSection(service: service, controller: controller),
         ),

@@ -35,8 +35,8 @@ class DeviceController extends ChangeNotifier {
   bool loaded = false;
   Map<PropertyId, Object?> values = {};
 
-  /// Текст последней ошибки; сбрасывается при следующей удачной операции.
-  String? error;
+  /// Последняя ошибка; сбрасывается при следующей удачной операции.
+  Object? error;
 
   Timer? _poll;
   bool _disposed = false;
@@ -107,7 +107,7 @@ class DeviceController extends ChangeNotifier {
       await operation();
       error = null;
     } catch (e) {
-      error = '$e';
+      error = e;
     }
     _notify();
   }

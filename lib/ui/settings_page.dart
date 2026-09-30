@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/accounts/session.dart';
 import '../core/cloud/regions.dart';
 import '../core/preferences.dart';
+import 'l10n.dart';
 import 'theme.dart';
 import 'widgets/device_tile.dart';
 import 'widgets/glass.dart';
@@ -27,11 +28,9 @@ class SettingsPage extends StatelessWidget {
 
   bool get _demo => sessions.any((session) => session.isDemo);
 
-  String get _logoutLabel {
-    if (_demo) return 'Выйти из демо';
-    return sessions.length > 1
-        ? 'Выйти из всех аккаунтов'
-        : 'Выйти из аккаунта';
+  String _logoutLabel(AppLocalizations l) {
+    if (_demo) return l.logoutDemo;
+    return sessions.length > 1 ? l.logoutAll : l.logoutAccount;
   }
 
   /// С этой ширины настройки раскладываются в две колонки.
@@ -57,7 +56,7 @@ class SettingsPage extends StatelessWidget {
                   40 + MediaQuery.paddingOf(context).bottom,
                 ),
                 children: [
-                  Text('Настройки', style: context.display(28)),
+                  Text(context.l10n.settingsTitle, style: context.display(28)),
                   if (wide)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,33 +82,54 @@ class SettingsPage extends StatelessWidget {
     children: children,
   );
 
-  List<Widget> _left(BuildContext context) => [
-    const _SectionTitle('Аккаунты Xiaomi'),
-    _accounts(context),
-    const _SectionTitle('Оформление'),
-    _Card(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      children: [
-        SegmentedButton<ThemeMode>(
-          showSelectedIcon: false,
-          segments: const [
-            ButtonSegment(value: ThemeMode.system, label: Text('Авто')),
-            ButtonSegment(value: ThemeMode.light, label: Text('Светлая')),
-            ButtonSegment(value: ThemeMode.dark, label: Text('Тёмная')),
-          ],
-          selected: {prefs.themeMode},
-          onSelectionChanged: (modes) => prefs.themeMode = modes.first,
-        ),
-        const SizedBox(height: 12),
-        UiScaleControl(prefs: prefs),
-      ],
-    ),
-  ];
+  List<Widget> _left(BuildContext context) {
+    final l = context.l10n;
+    return [
+      _SectionTitle(l.sectionAccounts),
+      _accounts(context),
+      _SectionTitle(l.sectionAppearance),
+      _Card(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        children: [
+          SegmentedButton<ThemeMode>(
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(value: ThemeMode.system, label: Text(l.auto)),
+              ButtonSegment(value: ThemeMode.light, label: Text(l.themeLight)),
+              ButtonSegment(value: ThemeMode.dark, label: Text(l.themeDark)),
+            ],
+            selected: {prefs.themeMode},
+            onSelectionChanged: (modes) => prefs.themeMode = modes.first,
+          ),
+          const SizedBox(height: 12),
+          UiScaleControl(prefs: prefs),
+        ],
+      ),
+      _SectionTitle(l.sectionLanguage),
+      _Card(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        children: [_languagePicker(l)],
+      ),
+    ];
+  }
+
+  /// Названия языков не переводятся: каждый записан на самом себе.
+  Widget _languagePicker(AppLocalizations l) => SegmentedButton<String>(
+    showSelectedIcon: false,
+    segments: [
+      ButtonSegment(value: 'system', label: Text(l.auto)),
+      for (final language in languages)
+        ButtonSegment(value: language.code, label: Text(language.name)),
+    ],
+    selected: {prefs.language},
+    onSelectionChanged: (codes) => prefs.language = codes.first,
+  );
 
   List<Widget> _right(BuildContext context) {
     final c = context.colors;
+    final l = context.l10n;
     return [
-      const _SectionTitle('Какие регионы опрашивать'),
+      _SectionTitle(l.sectionRegions),
       _Card(
         padding: const EdgeInsets.all(14),
         children: [
@@ -119,10 +139,7 @@ class SettingsPage extends StatelessWidget {
             children: [for (final region in allRegions) _regionChip(region)],
           ),
           const SizedBox(height: 12),
-          Text(
-            'Изменение применится при следующем обновлении списка.',
-            style: TextStyle(color: c.muted, fontSize: 13),
-          ),
+          Text(l.regionsHint, style: TextStyle(color: c.muted, fontSize: 13)),
         ],
       ),
       const SizedBox(height: 20),
@@ -131,7 +148,7 @@ class SettingsPage extends StatelessWidget {
           ListTile(
             leading: Icon(Icons.logout, color: c.bad),
             title: Text(
-              _logoutLabel,
+              _logoutLabel(l),
               style: TextStyle(color: c.bad, fontWeight: FontWeight.w600),
             ),
             onTap: onLogout,
@@ -154,7 +171,7 @@ class SettingsPage extends StatelessWidget {
           ListTile(
             leading: Icon(Icons.add, color: c.accent),
             title: Text(
-              'Добавить аккаунт',
+              context.l10n.addAccount,
               style: TextStyle(color: c.accent, fontWeight: FontWeight.w600),
             ),
             onTap: onAddAccount,
@@ -164,22 +181,20 @@ class SettingsPage extends StatelessWidget {
   }
 
   Future<void> _confirmRemove(BuildContext context, Session session) async {
+    final l = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Убрать аккаунт?'),
-        content: Text(
-          '${session.label}\n\nЕго устройства пропадут из списка. '
-          'Сами устройства и аккаунт Xiaomi не изменятся.',
-        ),
+        title: Text(l.removeAccountTitle),
+        content: Text(l.removeAccountBody(session.label)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Отмена'),
+            child: Text(l.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Убрать'),
+            child: Text(l.remove),
           ),
         ],
       ),
@@ -205,12 +220,16 @@ class _AccountRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     leading: const _Avatar(),
-    title: Text(session.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    title: Text(
+      session.isDemo ? context.l10n.demoAccount : session.label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    ),
     subtitle: Text('ID ${session.userId}', style: context.mono()),
     trailing: onRemove == null
         ? null
         : IconButton(
-            tooltip: 'Убрать аккаунт',
+            tooltip: context.l10n.removeAccount,
             icon: Icon(Icons.close, color: context.colors.bad),
             onPressed: onRemove,
           ),
@@ -293,7 +312,7 @@ class _RegionChip extends StatelessWidget {
                 RegionBadge(region, color: foreground),
                 const SizedBox(width: 8),
                 Text(
-                  regionNames[region]!,
+                  context.l10n.regionName(region),
                   style: TextStyle(
                     color: foreground,
                     fontWeight: FontWeight.w600,

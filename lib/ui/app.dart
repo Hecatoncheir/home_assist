@@ -6,6 +6,7 @@ import '../core/preferences.dart';
 import '../core/spec/spec_repository.dart';
 import '../demo/demo.dart';
 import 'home_shell.dart';
+import 'l10n.dart';
 import 'login_page.dart';
 import 'theme.dart';
 import 'widgets/ui_scale.dart';
@@ -72,6 +73,9 @@ class _HomeAssistAppState extends State<HomeAssistApp> {
         theme: buildTheme(HomeColors.light, Brightness.light),
         darkTheme: buildTheme(HomeColors.dark, Brightness.dark),
         themeMode: widget.prefs.themeMode,
+        locale: widget.prefs.locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) =>
             UiScale(prefs: widget.prefs, child: child!),
         home: AnimatedSwitcher(

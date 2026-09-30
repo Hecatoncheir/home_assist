@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../core/devices/device_probe.dart';
 import '../core/spec/miot_spec.dart';
+import 'l10n.dart';
 import 'theme.dart';
 import 'widgets/home_switch.dart';
 import 'widgets/spec_controls.dart';
@@ -30,7 +31,7 @@ class _DeviceProbePageState extends State<DeviceProbePage> {
   int? _scanningSiid;
   Timer? _watch;
   bool _reading = false;
-  String? _error;
+  Object? _error;
 
   DeviceProbe get _probe => widget.probe;
 
@@ -84,7 +85,7 @@ class _DeviceProbePageState extends State<DeviceProbePage> {
         _remember(changes);
       });
     } catch (e) {
-      if (mounted) setState(() => _error = 'Не удалось прочитать: $e');
+      if (mounted) setState(() => _error = e);
     } finally {
       _reading = false;
     }
@@ -101,25 +102,26 @@ class _DeviceProbePageState extends State<DeviceProbePage> {
   }
 
   Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: _reportText()));
+    final l = context.l10n;
+    await Clipboard.setData(ClipboardData(text: _reportText(l)));
     if (!mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Отчёт скопирован')));
+        .showSnackBar(SnackBar(content: Text(l.probeCopied)));
   }
 
-  String _reportText() {
+  String _reportText(AppLocalizations l) {
     final device = _probe.device;
     final properties = _report?.properties ?? const [];
     return [
-      '${device.name} · ${device.model} · регион ${device.region}',
+      l.probeReportTitle(device.name, device.model, device.region),
       '',
       for (final p in properties)
-        '${address(p.id)}\t${p.spec?.name ?? 'нет в спецификации'}\t${_values[p.id]}',
+        '${address(p.id)}\t${p.spec?.name ?? l.probeNotInSpec}\t${_values[p.id]}',
       if (_report?.failedServices case final failed? when failed.isNotEmpty)
-        'Ошибка при опросе siid: ${failed.join(', ')}',
+        l.probeFailedSiids(failed.join(', ')),
       if (_changes.isNotEmpty) ...[
         '',
-        'Изменения:',
+        '${l.probeChanges}:',
         for (final c in _changes.reversed)
           '${_time(c.at)}\t${address(c.id)}\t${c.from} → ${c.to}',
       ],
@@ -129,15 +131,16 @@ class _DeviceProbePageState extends State<DeviceProbePage> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l = context.l10n;
     final report = _report;
     final error = _error;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Исследование: ${_probe.device.name}'),
+        title: Text(l.probeTitle(_probe.device.name)),
         actions: [
           if (report != null)
             IconButton(
-              tooltip: 'Скопировать отчёт',
+              tooltip: l.probeCopy,
               icon: const Icon(Icons.copy_all_outlined),
               onPressed: _copy,
             ),
@@ -151,33 +154,31 @@ class _DeviceProbePageState extends State<DeviceProbePage> {
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
             children: [
               Text(
-                'Приложение спрашивает у устройства свойства siid 1–'
-                '${_probe.maxSiid} × piid 1–${_probe.maxPiid}, в том числе '
-                'те, которых нет в спецификации. Только чтение: устройство '
-                'ничего не меняет.',
+                l.probeIntro(_probe.maxSiid, _probe.maxPiid),
                 style: TextStyle(color: c.muted),
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: _scanningSiid == null ? _scan : null,
                 icon: const Icon(Icons.search),
-                label: Text(_scanLabel),
+                label: Text(_scanLabel(l)),
               ),
               if (report != null) ...[
                 const SizedBox(height: 8),
                 _Summary(report),
                 HomeSwitchTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Следить за изменениями'),
-                  subtitle: const Text(
-                    'Раз в 2 секунды. Нажимайте кнопки на устройстве или '
-                    'в Mi Home и смотрите, какие значения меняются.',
-                  ),
+                  title: Text(l.probeWatch),
+                  subtitle: Text(l.probeWatchHint),
                   value: _watch != null,
                   onChanged: _toggleWatching,
                 ),
               ],
-              if (error != null) Text(error, style: TextStyle(color: c.bad)),
+              if (error != null)
+                Text(
+                  l.probeReadFailed(describeError(l, error)),
+                  style: TextStyle(color: c.bad),
+                ),
               if (_changes.isNotEmpty) _ChangeLog(_changes),
               if (report != null)
                 for (final property in report.properties)
@@ -193,10 +194,10 @@ class _DeviceProbePageState extends State<DeviceProbePage> {
     );
   }
 
-  String get _scanLabel {
+  String _scanLabel(AppLocalizations l) {
     final siid = _scanningSiid;
-    if (siid != null) return 'Опрашиваю siid $siid из ${_probe.maxSiid}…';
-    return _report == null ? 'Сканировать' : 'Сканировать заново';
+    if (siid != null) return l.probeScanning(siid, _probe.maxSiid);
+    return _report == null ? l.probeScan : l.probeRescan;
   }
 }
 
@@ -210,14 +211,14 @@ class _Summary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final failed = report.failedServices;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Text(
         [
-          'Найдено свойств: ${report.properties.length}, '
-              'из них нет в спецификации: ${report.hiddenCount}.',
-          if (failed.isNotEmpty) 'Ошибка при опросе siid ${failed.join(', ')}.',
+          l.probeFound(report.properties.length, report.hiddenCount),
+          if (failed.isNotEmpty) l.probeFailedSiids(failed.join(', ')),
         ].join(' '),
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
@@ -241,7 +242,10 @@ class _ChangeLog extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Изменения', style: TextStyle(fontWeight: FontWeight.w700)),
+        Text(
+          context.l10n.probeChanges,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 6),
         for (final change in changes.take(12))
           Text(
@@ -279,7 +283,7 @@ class _PropertyRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              spec?.label ?? 'нет в спецификации',
+              spec?.label ?? context.l10n.probeNotInSpec,
               style: TextStyle(
                 color: spec == null ? c.accent : c.ink,
                 fontWeight: spec == null ? FontWeight.w700 : null,
@@ -293,7 +297,7 @@ class _PropertyRow extends StatelessWidget {
             ),
           Flexible(
             child: Text(
-              spec == null ? '$value' : formatValue(spec, value),
+              spec == null ? '$value' : formatValue(context.l10n, spec, value),
               textAlign: TextAlign.end,
               style: context.mono(size: 13, color: c.ink),
             ),
