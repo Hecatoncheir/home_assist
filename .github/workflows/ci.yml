@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: 3.47.5
+
+jobs:
+  test:
+    name: Анализ и тесты
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test
+
+  # Релизные сборки идут только по тегу vX.Y.Z или при ручном запуске:
+  # минуты macOS в приватном репозитории расходуются в 10 раз быстрее.
+  build:
+    name: Сборка ${{ matrix.name }}
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows
+            os: windows-latest
+            build: flutter build windows --release
+            package: 7z a home_assist-windows-x64.zip ./build/windows/x64/runner/Release/*
+            artifact: home_assist-windows-x64.zip
+          - name: linux
+            os: ubuntu-latest
+            build: flutter build linux --release
+            package: tar -czf home_assist-linux-x64.tar.gz -C build/linux/x64/release/bundle .
+            artifact: home_assist-linux-x64.tar.gz
+          - name: macos
+            os: macos-latest
+            build: flutter build macos --release
+            package: ditto -c -k --keepParent build/macos/Build/Products/Release/home_assist.app home_assist-macos.zip
+            artifact: home_assist-macos.zip
+          - name: android
+            os: ubuntu-latest
+            build: flutter build apk --release
+            package: cp build/app/outputs/flutter-apk/app-release.apk home_assist-android.apk
+            artifact: home_assist-android.apk
+          # Без подписи Apple приложение не установить, поэтому для iOS
+          # только проверяем, что проект собирается.
+          - name: ios
+            os: macos-latest
+            build: flutter build ios --release --no-codesign
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - if: matrix.name == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev
+      - run: flutter pub get
+      - run: ${{ matrix.build }}
+      - if: matrix.package
+        shell: bash
+        run: ${{ matrix.package }}
+      - if: matrix.artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error
+
+  release:
+    name: Публикация релиза
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "${{ github.ref_name }}" dist/*
+          --repo "${{ github.repository }}"
+          --title "${{ github.ref_name }}"
+          --generate-notes
